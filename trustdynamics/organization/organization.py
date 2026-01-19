@@ -100,6 +100,80 @@ class Organization:
         plt.title(self.name)
         plt.show()
 
+    def serialize(self) -> dict:
+        """
+        Serialize object into a dictionary.
+        """
+        return {
+            "name": self.name,
+            "agents": [
+                {
+                    "id": node_id,
+                    "name": data.get("name"),
+                    "department": data.get("department"),
+                    "parent": next(iter(self.G.neighbors(node_id)), None)  # Get the parent (first neighbor)
+                }
+                for node_id, data in self.G.nodes(data=True)
+            ]
+        }
+    
+    def deserialize(self, data: dict):
+        """
+        Deserialize object from a dictionary.
+        """
+        self.name = data.get("name", "Organization")
+        self.G.clear()
+        for agent in data.get("agents", []):
+            node_id = agent["id"]
+            name = agent.get("name")
+            department = agent.get("department")
+            parent = agent.get("parent")
+            self.G.add_node(node_id, name=name, department=department)
+            if parent is not None:
+                self.G.add_edge(parent, node_id)
+
+    @property
+    def depth(self) -> int:
+        """
+        Return the maximum number of edges from the CEO (id=0) to any node.
+        """
+        if 0 not in self.G:
+            raise ValueError("Organization must contain a CEO with id=0.")
+        if self.G.number_of_nodes() == 1:
+            return 0
+        lengths = nx.single_source_shortest_path_length(self.G, 0)
+        return int(max(lengths.values(), default=0))
+    
+    @property
+    def population(self) -> int:
+        """
+        Return the total number of agents.
+        """
+        return self.G.number_of_nodes()
+    
+    def agents(self, department: str | None = None) -> list:
+        """
+        Return a list of agents in the organization, optionally filtered by department.
+        """
+        agents_list = []
+        for node_id, data in self.G.nodes(data=True):
+            if department is None or data.get("department") == department:
+                agents_list.append(node_id)
+        return agents_list
+    
+    def departments(self) -> set:
+        """
+        Return the set of departments.
+        """
+        departments = set(data.get("department") for _, data in self.G.nodes(data=True))
+        departments.discard("CEO")
+        return departments
+
+    def __eq__(self, value) -> bool:
+        if self.serialize() == value.serialize():
+            return True
+        return False
+
 
 if __name__ == "__main__":
     org = Organization(name="MyCompany", ceo_name="Alice")

@@ -3,12 +3,12 @@ from trustdynamics.organization.organization import Organization
 
 
 def generate_organization(
-        n_departments: int,
-        n_people: int,
-        max_depth: int,
-        name: str = "Organization",
-        seed: int | None = None,
-    ) -> Organization:
+    n_departments: int,
+    n_people: int,
+    max_depth: int,
+    name: str = "Organization",
+    seed: int | None = None,
+) -> Organization:
     """Generate a random organization with guaranteed departments.
 
     Construction:
@@ -17,15 +17,13 @@ def generate_organization(
     3) For each department, generate a random tree with a HARD depth cap.
 
     Depth semantics (hard cap):
-    - Let CEO have id 0.
+    - CEO has id 0.
     - Each department head is a direct report of the CEO.
-    - Within each department branch, we enforce that the maximum number of edges
-      from the department head to any node is <= (d-1), where d is sampled in
-      [1, max_depth].
-
-    Notes:
-    - If n_people - 1 < n_departments, it is impossible to have all departments present.
-      In that case, only (n_people - 1) departments will be present (each with 1 person).
+    - Within each department branch, enforce that the maximum number of edges
+      from the department head to any node is <= (d - 1), where d is sampled in
+      [min_depth, max_depth] and min_depth is:
+        * 1 if the department has only the head (size == 1)
+        * 2 if the department has head + others (size > 1)
     """
     if n_departments < 1:
         raise ValueError("n_departments must be at least 1.")
@@ -49,15 +47,19 @@ def generate_organization(
     if n_emp >= n_departments:
         base = np.ones(n_departments, dtype=int)
         remainder = n_emp - n_departments
-        extra = rng.multinomial(remainder, np.ones(n_departments) / n_departments) if remainder > 0 else np.zeros(n_departments, dtype=int)
+        if remainder > 0:
+            extra = rng.multinomial(remainder, np.ones(n_departments) / n_departments)
+        else:
+            extra = np.zeros(n_departments, dtype=int)
         dept_sizes = base + extra
     else:
+        # Not enough people to cover all departments: pick which departments exist
         dept_sizes = np.zeros(n_departments, dtype=int)
         chosen = rng.choice(n_departments, size=n_emp, replace=False)
         dept_sizes[chosen] = 1
 
     # --- Step 2: Create department heads (direct reports of CEO) ---
-    dept_heads: dict[int, int] = {}
+    dept_heads: dict[int, int] = {}  # dept index -> node_id
     for d_i, size in enumerate(dept_sizes):
         if size <= 0:
             continue
@@ -69,16 +71,22 @@ def generate_organization(
         if size <= 0:
             continue
 
-        remaining_in_dept = int(size - 1)  # head already created
+        # We already created the head (counts as 1 in this department)
+        remaining_in_dept = int(size - 1)
         if remaining_in_dept <= 0:
             continue
 
         dept = departments[d_i]
         head = dept_heads[d_i]
 
-        # Sample actual depth for this department branch
-        # depth=1 means only head; depth>=2 allows levels below head.
-        depth = int(rng.integers(1, max_depth + 1))
+        # Sample depth, but ensure it can accommodate at least one level below head if needed
+        min_depth = 1 if size == 1 else 2
+        if min_depth > max_depth:
+            raise ValueError(
+                f"max_depth={max_depth} is too small to place {size} people in '{dept}'. "
+                "Increase max_depth or reduce n_people/n_departments."
+            )
+        depth = int(rng.integers(min_depth, max_depth + 1))
 
         # Levels under the department head
         levels: list[list[int]] = [[] for _ in range(depth)]
@@ -88,7 +96,7 @@ def generate_organization(
         depth_from_head: dict[int, int] = {head: 0}
         max_allowed = depth - 1  # maximum edges from head
 
-        # Seed level-by-level
+        # Seed level-by-level (build at most 'depth' levels)
         for lvl in range(1, depth):
             if remaining_in_dept <= 0:
                 break
@@ -110,6 +118,7 @@ def generate_organization(
             eligible = [n for n in all_dept_nodes if depth_from_head[n] < max_allowed]
             if not eligible:
                 # No place to attach without violating max depth.
+                # (Should only happen if depth==1, which is prevented for size>1.)
                 break
 
             p = int(rng.choice(np.array(eligible, dtype=int)))
@@ -122,5 +131,6 @@ def generate_organization(
 
 
 if __name__ == "__main__":
-    org = generate_organization(n_departments=3, n_people=30, max_depth=5, seed=42)
+    org = generate_organization(n_departments=2, n_people=50, max_depth=5, seed=42)
+    print("Depth: ", org.depth)
     org.draw()
