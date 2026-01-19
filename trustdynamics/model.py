@@ -1,4 +1,4 @@
-from trustdynamics.organization import Organization, OrganizationTrust
+from trustdynamics.organization import Organization, OrganizationalTrust
 
 
 class Model:
@@ -9,7 +9,9 @@ class Model:
         seed: int | None = None,
     ):
         self.org = organization
-        self.trust = OrganizationTrust(organization=self.org, seed=seed).adjacency_dataframe()
+        organizational_trust = OrganizationalTrust(organization=self.org, seed=seed)
+        self.personal_trust = organizational_trust.personal_adjacency_dataframe()
+        self.departmental_trust = organizational_trust.departmental_adjacency_dataframe()
 
 
 if __name__ == "__main__":
@@ -25,4 +27,5 @@ if __name__ == "__main__":
         seed=seed
     )
     model = Model(organization=organization, seed=seed)
-    print(model.trust)
+    print(model.personal_trust)
+    print(model.departmental_trust)
