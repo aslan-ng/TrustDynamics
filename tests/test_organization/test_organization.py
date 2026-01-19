@@ -45,11 +45,32 @@ class TestOrganization(unittest.TestCase):
         self.assertEqual(b_id, 2)
         self.assertEqual(self.org.depth, 2)
         self.assertEqual(self.org.population, 3)
-        print(self.org.departments())
         self.assertEqual(len(self.org.departments()), 1)
         self.assertIn("R&D", self.org.departments())
         self.assertEqual(len(self.org.agents()), 3)
         self.assertEqual(len(self.org.agents("R&D")), 2)
+    
+    def test_distance(self):
+        # Only CEO
+        self.assertEqual(self.org.distance(0), 0)
+
+        # CEO -> A -> B
+        a_id = self.org.add_agent(name="Alice", parent="Chris", department="R&D")
+        b_id = self.org.add_agent(name="Bob", parent=a_id, department="R&D")
+
+        self.assertEqual(self.org.distance(a_id), 1)          # to CEO
+        self.assertEqual(self.org.distance(b_id), 2)          # to CEO
+        self.assertEqual(self.org.distance(b_id, a_id), 1)    # between peers
+
+    def test_get_agent_department(self):
+        a_id = self.org.add_agent(name="Alice", parent="Chris", department="R&D")
+        b_id = self.org.add_agent(name="Bob", parent=a_id, department="R&D")
+        c_id = self.org.add_agent(name="Charlie", parent=0, department="Sales")
+
+        self.assertEqual(self.org.get_agent_department(a_id), "R&D")
+        self.assertEqual(self.org.get_agent_department(b_id), "R&D")
+        self.assertEqual(self.org.get_agent_department(c_id), "Sales")
+        self.assertEqual(self.org.get_agent_department(999), None)  # Non-existent agent
 
 
 if __name__ == "__main__":
