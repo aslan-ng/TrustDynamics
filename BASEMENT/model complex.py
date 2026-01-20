@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from trustdynamics.organization import Organization, OrganizationalTrust
-from trustdynamics.degroot import Degroot
+from trustdynamics.trust_models.degroot import Degroot
 
 
 class Model:
@@ -15,17 +15,15 @@ class Model:
         self.rng = np.random.default_rng(seed)
         self.org = organization
         organizational_trust = OrganizationalTrust(organization=self.org, seed=seed)
-        self.trusts = [
-            self.row_stochastic(organizational_trust.adjacency_dataframe()),
-        ]
-        self.agents = self.trusts[-1].index
-        self.opinions = [
-            pd.Series(
-                self.rng.uniform(-1.0, 1.0, size=len(self.agents)),
-                index=self.agents,
-                name="opinions"
-            ),
-        ]
+        self.personal_trust = organizational_trust.personal_adjacency_dataframe()
+        self.departmental_trust = organizational_trust.departmental_adjacency_dataframe()
+        self.agents = self.personal_trust.index
+        self.departments = self.departmental_trust.index
+        self.opinions = pd.Series(
+            self.rng.uniform(-1.0, 1.0, size=len(self.agents)),
+            index=self.agents,
+            name="opinion"
+        )
 
     #def random(self, low: float = 0.0, high: float = 1.0):
     #    return self.rng.uniform(low, high)
@@ -41,16 +39,21 @@ class Model:
         return W
 
     def update(self):
-        # Aggregate opinions
-        W = self.row_stochastic(self.trusts[-1])
-        #print(W)
-        degroot = Degroot(W)
-        initial_opinions = self.opinions[-1]
-        #print(initial_opinions)
-        final_opinions = degroot.run_steps(self.opinions[-1])["final_opinions"]
-        #print(final_opinions)
-        self.opinions.append(final_opinions)
-        # Update trust
+        # Aggregate opinion within a department
+        department_opinions = {}
+        for department in self.departments:
+            agents = self.org.agents(department)
+            print(agents)
+            opinions = # Extract the agents opinions from self.opinions
+            trust_matrix = # Extract the agents trusts from self.personal_trust
+            department_opinion = # Use degroot for update
+            department_opinions[department] = department_opinion
+
+        # Update the trust values within department
+
+        # Aggregate opinion within all departments of the organization
+
+        # Update the trust values within organizaion
 
 
 if __name__ == "__main__":
@@ -68,6 +71,5 @@ if __name__ == "__main__":
     model = Model(organization=organization, seed=seed)
     #print(model.personal_trust)
     #print(model.departmental_trust)
-    
+    #print(model.opinions)
     model.update()
-    print(model.opinions)

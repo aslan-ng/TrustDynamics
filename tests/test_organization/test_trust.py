@@ -1,6 +1,6 @@
 import unittest
 from trustdynamics.organization.organization import Organization
-from trustdynamics.organization.trust import OrganizationTrust
+from trustdynamics.organization.organizational_trust import OrganizationalTrust
 
 
 class TestOrganizationTrust(unittest.TestCase):
@@ -9,7 +9,7 @@ class TestOrganizationTrust(unittest.TestCase):
         org = Organization(name="TestOrg", ceo_name="Chris")
         self.head_a = org.add_agent(name="Alice", parent=0, department="R&D")
         self.head_b = org.add_agent(name="Bob", parent=0, department="Sales")
-        self.comm = OrganizationTrust(org, seed=42)
+        self.comm = OrganizationalTrust(org, seed=42)
 
     def test_departmental_adjacency_dataframe(self):
         df = self.comm.departmental_adjacency_dataframe()

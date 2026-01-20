@@ -9,7 +9,8 @@ def generate_organization(
     name: str = "Organization",
     seed: int | None = None,
 ) -> Organization:
-    """Generate a random organization with guaranteed departments.
+    """
+    Generate a random organization with guaranteed departments.
 
     Construction:
     1) Allocate headcount per department (sum = n_people - 1, excluding CEO).
