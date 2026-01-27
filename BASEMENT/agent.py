@@ -1,6 +1,6 @@
 import numpy as np
 
-from trustdynamics.opinion import Opinion
+from BASEMENT.opinion import Opinion
 
 
 class Agent:

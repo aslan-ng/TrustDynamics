@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from trustdynamics.organization import Organization, OrganizationalTrust
-from trustdynamics.trust_models.degroot import Degroot
+from trustdynamics.degroot import Degroot
 
 
 class Model:

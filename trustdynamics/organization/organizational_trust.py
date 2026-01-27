@@ -1,6 +1,5 @@
 import numpy as np
 import networkx as nx
-import matplotlib.pyplot as plt
 import pandas as pd
 
 from trustdynamics.organization.organization import Organization
@@ -11,9 +10,12 @@ class OrganizationalTrust:
     def __init__(
         self,
         organization: Organization,
-        seed: int | None = None,
+        rng = None,
     ):
-        self.rng = np.random.default_rng(seed)
+        if rng is None:
+            self.rng = np.random.default_rng(rng)
+        else:
+            self.rng = rng
         self.org = organization
         self.G = nx.DiGraph()
         self.create()
@@ -110,12 +112,15 @@ if __name__ == "__main__":
 
     from trustdynamics.organization.generate import generate_organization
 
+    seed = 42
+    rng = np.random.default_rng(seed)
+
     org = generate_organization(
         n_departments=3,
         n_people=6,
         max_depth=2,
-        seed=42
+        seed=seed
     )
-    org_trust = OrganizationalTrust(org, seed=42)
+    org_trust = OrganizationalTrust(org, rng=rng)
     print(org_trust.adjacency_dataframe())
     org.draw()
