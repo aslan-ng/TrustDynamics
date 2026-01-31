@@ -1,164 +1,173 @@
-import os
-import json
 import numpy as np
-import pandas as pd
+import networkx as nx
 
-from trustdynamics.organization import Organization, OrganizationalTrust
-from trustdynamics.degroot import Degroot
+from trustdynamics.organization import Organization
+from trustdynamics.utils import (
+    bounded_random_with_exact_mean,
+    map_to_range,
+    normalize_01,
+)
 
 
 class Model:
 
     def __init__(
         self,
-        organization: Organization,
+        org: Organization,
+        technology_success_rate: float = 1.0,
+        tech_successful_delta: float = 0.05,
+        tech_failure_delta: float = -0.15,
+        average_initial_opinion: float = 0.0,
         seed: int | None = None,
     ):
         self.rng = np.random.default_rng(seed)
-        self.org = organization
-        organizational_trust = OrganizationalTrust(organization=self.org, rng=self.rng)
-        self.trusts = [
-            self.row_stochastic(organizational_trust.adjacency_dataframe()),
-        ]
-        self.agents = self.trusts[-1].index
-        self.opinions = [
-            pd.Series(
-                self.rng.uniform(-1.0, 1.0, size=len(self.agents)),
-                index=self.agents,
-                name="opinions"
-            ),
-        ]
+        self.org = org
 
-    #def random(self, low: float = 0.0, high: float = 1.0):
-    #    return self.rng.uniform(low, high)
+        if technology_success_rate < 0.0 or technology_success_rate > 1.0:
+            raise ValueError("technology_success_rate must be between 0.0 and 1.0")
+        self.technology_success_rate = technology_success_rate
+        self.tech_successful_delta = tech_successful_delta
+        self.tech_failure_delta = tech_failure_delta
 
-    def row_stochastic(self, T: pd.DataFrame, eps: float = 1e-12) -> pd.DataFrame:
+        if average_initial_opinion < -1.0 or average_initial_opinion > 1.0:
+            raise ValueError("average_initial_opinion must be between -1.0 and 1.0")
+        self.initialize_agents_opinion(average_initial_opinion)
+        self.initialize_agents_influence()
+        self.initialize_teams_influence()
+
+    def initialize_agents_opinion(self, average_initial_opinion: float):
         """
-        Return a row-stochastic version of matrix T (rows sum to 1).
-        Does not modify T.
+        Assign initial agents opinions.
         """
-        row_sums = T.sum(axis=1)
-        row_sums = row_sums.where(row_sums > eps, 1.0)  # avoid divide-by-zero
-        W = T.div(row_sums, axis=0)
-        return W
+        agent_ids = list(self.org.all_agent_ids)
+        n = len(agent_ids)
+        if n == 0:
+            return
+        opinions = bounded_random_with_exact_mean(
+            n=n,
+            target_mean=average_initial_opinion,
+            seed=self.rng, # pass the Generator to keep reproducibility tied to Model
+            min_value=-1.0,
+            max_value=1.0,
+        )
+        for agent_id, opinion in zip(agent_ids, opinions):
+            self.org.set_agent_opinion(agent_id, float(opinion))
+
+    def initialize_agents_influence(self):
+        """
+        Assign initial influence values between agents from betweenness centrality.
+        """
+        """
+        Assign initial influence values between agents from betweenness centrality.
+
+        Strategy:
+        - Compute node betweenness centrality on org.G_agents
+        - Normalize to [0,1]
+        - For each directed edge u->v, set influence based on centrality(u)
+        - Writes via org.set_agent_influence(u, v, influence)
+        """
+        influence_min = 0.00
+        influence_max = 1.00
+
+        G = self.org.G_agents
+        if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
+            return
+
+        # betweenness centrality on directed graph (normalized)
+        bc = nx.betweenness_centrality(G, normalized=True)
+        bc01 = normalize_01(bc)
+
+        # Initialize every directed edge u -> v using SOURCE node centrality (u)
+        for u, v in G.edges():
+            infl = map_to_range(bc01.get(u, 0.0), influence_min, influence_max)
+            self.org.set_agent_influence(u, v, infl)
+
+    def initialize_teams_influence(self):
+        """
+        Assign initial influence values between teams from betweenness centrality.
+
+        Strategy:
+        - Compute node betweenness centrality on org.G_teams
+        - Normalize to [0,1]
+        - For each directed edge u->v, set influence based on centrality(u)
+        - Writes via org.set_team_influence(u, v, influence)
+        """
+        influence_min = 0.00
+        influence_max = 1.00
+
+        G = self.org.G_teams
+        if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
+            return
+
+        bc = nx.betweenness_centrality(G, normalized=True)
+        bc01 = normalize_01(bc)
+
+        for u, v in G.edges():
+            infl = map_to_range(bc01.get(u, 0.0), influence_min, influence_max)
+            self.org.set_team_influence(u, v, infl)
 
     def update(self):
-        # Aggregate opinions
-        W = self.row_stochastic(self.trusts[-1])
-        #print(W)
-        degroot = Degroot(W)
-        initial_opinions = self.opinions[-1]
-        #print(initial_opinions)
-        final_opinions = degroot.run_steps(initial_opinions)["final_opinions"]
-        #print(final_opinions)
-        self.opinions.append(final_opinions)
-
-    def serialize(self):
-        return {
-            "organization": self.org.serialize(),
-
-            "trusts": [
-                {
-                    "index": list(W.index),
-                    "columns": list(W.columns),
-                    "data": W.to_numpy().tolist(),
-                }
-                for W in self.trusts
-            ],
-
-            "opinions": [
-                {
-                    "index": list(s.index),
-                    "name": s.name,
-                    "data": s.to_numpy().tolist(),
-                }
-                for s in self.opinions
-            ],
-
-            "rng_state": self.rng.bit_generator.state,
-        }
-    
-    def save(self, path):
-        folderpath = os.path.join(path, "result")
-        os.makedirs(folderpath, exist_ok=True)
-
-        data = self.serialize()
-        filepath = os.path.join(folderpath, f"{self.org.name}.json")
-
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
-
-        return filepath
-    
-    @classmethod
-    def deserialize(cls, data: dict) -> "Model":
         """
-        Reconstruct a Model from a serialized dictionary.
+        1. Update the agents opinions based on communication
+        2. Update the agents opinions
+        3. Update the teams opinions based on communication
         """
-        # Restore organization
-        org = Organization()
-        org.deserialize(data["organization"])
+        self.agents_use_technology()
+        self.agents_communicate_within_teams()
+        self.teams_communicate_with_teams()
 
-        # Create instance without __init__
-        model = cls.__new__(cls)
-        model.org = org
-
-        # Restore RNG
-        model.rng = np.random.default_rng()
-        model.rng.bit_generator.state = data["rng_state"]
-
-        # Restore trust matrices
-        model.trusts = [
-            pd.DataFrame(
-                t["data"],
-                index=t["index"],
-                columns=t["columns"],
-            )
-            for t in data["trusts"]
-        ]
-
-        model.agents = model.trusts[-1].index
-
-        # Restore opinions
-        model.opinions = [
-            pd.Series(
-                o["data"],
-                index=o["index"],
-                name=o["name"],
-            )
-            for o in data["opinions"]
-        ]
-
-        return model
-
-    @classmethod
-    def load(cls, filepath: str) -> "Model":
+    def agents_communicate_within_teams(self):
         """
-        Load a Model from a JSON file.
+        Agents communicate with agents inside their teams and agents from connected teams.
+        Shared opinions are aggregated as team opinion.
         """
-        import json
+        for team_id in self.org.all_team_ids:
+            # Calculate aggregate opinion for the teams
+            agents = self.org.agents_from_team(team_id)
+            # Add agents from other teams that are connected to this team
+            #### 
+            # Update opinions of agents based on group opinion
+            team_opinion = 0.0 ####
+            self.org.set_team_opinion(team_id, team_opinion)
+            # Update influence between agents based on aggregated opinions
 
-        if not os.path.isfile(filepath):
-            raise FileNotFoundError(f"No such file: {filepath}")
+    def agents_use_technology(self):
+        agents = self.org.all_agent_ids
+        for agent_id in agents:
+            current_opinion = self.org.get_agent_opinion(agent_id)
+            tech_successful: bool = self.rng.random() < self.technology_success_rate
+            if tech_successful:
+                new_opinion = min(current_opinion + self.tech_successful_delta, 1.0)
+            else:
+                new_opinion = max(current_opinion + self.tech_failure_delta, -1.0)
+            self.org.set_agent_opinion(agent_id, new_opinion)
 
-        with open(filepath, "r") as f:
-            data = json.load(f)
+    def teams_communicate_with_teams(self):
+        """
+        Aggregate team opinions to form organization opinion.
+        """
+        team_ids = self.org.all_team_ids
+        for team_id in team_ids:
+            ####
+            # Update opinions of agents based on group opinion
+            team_opinion = 0.0 ####
+            self.org.set_team_opinion(team_id, team_opinion)
+        
 
-        return cls.deserialize(data)
-    
+
+
+
+
+
 
 if __name__ == "__main__":
     
-    from trustdynamics.organization.generate import generate_organization
-    
-    seed = 42
+    from trustdynamics.organization.samples import organization_0 as org
 
-    organization = generate_organization(
-        n_departments=3,
-        n_people=6,
-        max_depth=2,
-        seed=seed
+    model = Model(
+        org=org,
+        technology_success_rate=0.9,
+        average_initial_opinion=0.0,
+        seed=42
     )
-    model = Model(organization=organization, seed=seed)
-    model.update()
-    print(model.opinions)
+    print(model.org.get_agent_influence("Agent 5", "Agent 2"))

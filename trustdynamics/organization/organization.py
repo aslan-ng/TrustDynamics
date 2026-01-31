@@ -1,244 +1,313 @@
-import numpy as np
 import networkx as nx
-import matplotlib.pyplot as plt
+
+from trustdynamics.organization.graphics import Graphics
+from trustdynamics.utils.new_id import new_unique_id
 
 
-class Organization:
+class Organization(Graphics):
 
-    def __init__(
-            self,
-            name: str = "Organization",
-            ceo_name: str = "CEO",
-        ):
-        self.G = nx.Graph()
+    def __init__(self, name: str = "Organization"):
         self.name = name
-        self.add_agent(name=ceo_name, parent=None, department="CEO")
+        self.G_teams = nx.DiGraph()
+        self.G_agents = nx.DiGraph()
+        self.opinions = [] # History of orgnization aggregate opinions
 
-    def new_id(self) -> int:
-        """
-        Generates a new unique ID for an agent in the organization.
-        """
-        if len(self.G.nodes) == 0:
-            return 0
+    @property
+    def all_team_ids(self) -> set:
+        return set(self.G_teams.nodes())
+    
+    @property
+    def all_team_names(self) -> set:
+        names = set()
+        for _, attrs in self.G_teams.nodes(data=True):
+            if attrs.get("name") is not None and attrs.get("name") != "":
+                names.add(attrs.get("name"))
+        return names
+    
+    @property
+    def all_agent_ids(self) -> set:
+        return set(self.G_agents.nodes())
+
+    @property
+    def all_agent_names(self) -> set:
+        names = set()
+        for _, attrs in self.G_agents.nodes(data=True):
+            if attrs.get("name") is not None and attrs.get("name") != "":
+                names.add(attrs.get("name"))
+        return names
+
+    @property
+    def all_ids(self) -> set:
+        return self.all_team_ids.union(self.all_agent_ids)
+    
+    @property
+    def all_names(self) -> set:
+        return self.all_team_names.union(self.all_agent_names)
+    
+    def agents_from_team(self, team: int | str | None) -> set:
+        if team is not None:
+            team_id = self.search(team)
+            if team_id is None:
+                raise ValueError("Team must exist in the organization to get its agents.")
         else:
-            return max(self.G.nodes) + 1
-        
-    def add_agent(
-            self,
-            department: str,
-            parent: int | str,
-            name: str | None = None,
-        ) -> int:
-        """
-        Adds a new agent to the organization.
-        """
-        new_id = self.new_id()
-        if not self.is_name_unique(name=name):
-            raise ValueError(f"Agent name '{name}' is not unique.")
-        self.G.add_node(new_id, name=name, department=department)
-        if parent is not None:
-            parent_id = self.get_agent_id(parent) if isinstance(parent, str) else parent
-            self.G.add_edge(parent_id, new_id)
-        return new_id
+            team_id = None
+        agents = set()
+        for node_id, attrs in self.G_agents.nodes(data=True):
+            if attrs.get("team") == team_id:
+                agents.add(node_id)
+        return agents
     
-    def get_agent_id(self, name: str) -> int | None:
-        """
-        Retrieves the ID of an agent by their name.
-        """
-        for node_id, data in self.G.nodes(data=True):
-            if data.get('name') == name:
-                return node_id
-        return None
+    def agent_team_id(self, agent: int | str) -> int | None:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization")
+        return self.G_agents.nodes[agent_id].get("team", None)
     
-    def get_agent_department(self, agent: int | str) -> str | None:
-        """
-        Retrieves the department of an agent by their ID or name.
-        """
-        agent_id = self.get_agent_id(agent) if isinstance(agent, str) else agent
-        if agent_id in self.G:
-            return self.G.nodes[agent_id].get('department')
-        return None
-    
-    def department_head(self, department: str) -> int | None:
-        """
-        Retrieves the ID of the head of a given department.
-        """
-        for node_id, data in self.G.nodes(data=True):
-            if data.get('department') == department and self.G.degree[node_id] > 0:
-                return node_id
-        return None
-    
-    def is_name_unique(self, name: str | None) -> bool:
-        """
-        Checks if the given name is unique among the agents in the organization.
-        """
+    def _is_name_unique(self, name: str | None) -> bool:
+        names = self.all_names
         if name is None:
             return True
-        for _, data in self.G.nodes(data=True):
-            if data.get('name') == name:
+        for existing_name in names:
+            if existing_name == name:
                 return False
         return True
 
-    @property
-    def depth(self) -> int:
-        """
-        Return the maximum number of edges from the CEO (id=0) to any node.
-        """
-        if 0 not in self.G:
-            raise ValueError("Organization must contain a CEO with id=0.")
-        if self.G.number_of_nodes() == 1:
-            return 0
-        lengths = nx.single_source_shortest_path_length(self.G, 0)
-        return int(max(lengths.values(), default=0))
-    
-    @property
-    def population(self) -> int:
-        """
-        Return the total number of agents.
-        """
-        return self.G.number_of_nodes()
-    
-    def agents(self, department: str | None = None) -> list:
-        """
-        Return a list of agents in the organization, optionally filtered by department.
-        """
-        agents_list = []
-        for node_id, data in self.G.nodes(data=True):
-            if department is None or data.get("department") == department:
-                agents_list.append(node_id)
-        return agents_list
-    
-    def departments(self) -> set:
-        """
-        Return the set of departments.
-        """
-        departments = set(data.get("department") for _, data in self.G.nodes(data=True))
-        departments.discard("CEO")
-        return departments
-    
-    def distance(self, agent_id: int, other_id: int | None = None) -> int:
-        """
-        Return the shortest-path distance (in edges) between two agents.
-        Defaults to distance from the given agent to the CEO when other_id is None.
-        """
-        target = 0 if other_id is None else other_id
-        if agent_id not in self.G:
-            raise ValueError(f"Agent id {agent_id} does not exist.")
-        if target not in self.G:
-            raise ValueError(f"Agent id {target} does not exist.")
-        try:
-            return int(nx.shortest_path_length(self.G, source=agent_id, target=target))
-        except nx.NetworkXNoPath as exc:
-            raise ValueError(f"No path between agent {agent_id} and agent {target}.") from exc
-
-    def children(self, agent_id: int) -> list:
-        """
-        Return a list of direct reports (children) of the given agent.
-        """
-        if agent_id not in self.G:
-            raise ValueError(f"Agent id {agent_id} does not exist.")
-        return list(self.G.neighbors(agent_id))
-    
-    def agents_from_level(self, level: int) -> list:
-        """
-        Return a list of agents at a given level (distance from CEO).
-        """
-        if level < 0:
-            raise ValueError("Level must be non-negative.")
-        return [node_id for node_id in self.G.nodes if self.distance(node_id) == level]
-    
-    def parent(self, agent_id: int) -> int | None:
-        """
-        Return the parent (manager) of the given agent, or None if it is the CEO.
-        """
-        if agent_id not in self.G:
-            raise ValueError(f"Agent id {agent_id} does not exist.")
-        neighbors = list(self.G.neighbors(agent_id))
-        if len(neighbors) == 0:
-            return None  # No parent (CEO)
-        return neighbors[0]  # Assuming only one parent
-
-    def draw(self):
-        """
-        Visualizes the organizational network.
-        """
-        pos = nx.spring_layout(self.G, seed=42)  # stable layout
-
-        # Node labels: Name (Department), use node ID if name is None
-        labels = {}
-        for node, data in self.G.nodes(data=True):
-            label_name = data.get('name') if data.get('name') is not None else str(node)
-            labels[node] = f"{label_name}\n({data.get('department')})"
-
-        # Color CEO (node 0) differently
-        node_colors = []
-        for node in self.G.nodes:
-            if node == 0:
-                node_colors.append("gold")  # CEO
-            else:
-                node_colors.append("lightblue")
-
-        # Scale node size based on organization size to reduce overlap
-        n_nodes = self.G.number_of_nodes()
-        base_size = 2500
-        min_size = 300
-        node_size = max(min_size, int(base_size / np.sqrt(n_nodes)))
-
-        nx.draw(
-            self.G,
-            pos,
-            labels=labels,
-            node_color=node_colors,
-            node_size=node_size,
-            font_size=9,
-            edge_color="gray"
+    def add_team(self, name: str | None = None):
+        if not self._is_name_unique(name):
+            raise ValueError(f"Team name must be unique in the organization. '{name}' already exists.")
+        team_id = new_unique_id(existing_values=self.all_ids)
+        self.G_teams.add_node(
+            team_id,
+            name=name,
+            opinions=[], # History of team opinions
         )
 
-        plt.title(self.name)
-        plt.show()
+    def add_agent(self, name: str | None = None, team: int | str = None):
+        if not self._is_name_unique(name):
+            raise ValueError(f"Agent name must be unique in the organization. '{name}' already exists.")
+        agent_id = new_unique_id(existing_values=self.all_ids)
+        if team is not None:
+            team_id = self.search(team)
+            if team_id is None:
+                raise ValueError("Team must exist in the organization to add an agent.")
+        else:
+            team_id = None
+            raise ValueError("Team cannot be None.") #####
+        self.G_agents.add_node(
+            agent_id,
+            name=name,
+            team=team_id,
+            opinions=[], # History of agent opinions
+        )
 
-    def serialize(self) -> dict:
-        """
-        Serialize object into a dictionary.
-        """
+    def add_agent_connection(self, agent_1: int | str, agent_2: int | str):
+        agent_1_id = self.search(agent_1)
+        agent_2_id = self.search(agent_2)
+        agent_1_team_id = self.agent_team_id(agent_1_id)
+        agent_2_team_id = self.agent_team_id(agent_2_id)
+        if agent_1_team_id is None or agent_2_team_id is None or agent_1_team_id != agent_2_team_id:
+            raise ValueError("Both agents must belong to the same team.")
+        if agent_1_id is not None and agent_2_id is not None:
+            self.G_agents.add_edge(
+                agent_1_id,
+                agent_2_id,
+                influences=[], # History of influence values
+            )
+            self.G_agents.add_edge(
+                agent_2_id,
+                agent_1_id,
+                influences=[], # History of influence values
+            )
+        else:
+            raise ValueError("Both agents must exist in the organization to add a connection.")
+
+    def add_team_connection(self, team_1: int | str, team_2: int | str):
+        team_1_id = self.search(team_1)
+        team_2_id = self.search(team_2)
+        if team_1_id is not None and team_2_id is not None:
+            self.G_teams.add_edge(
+                team_1_id,
+                team_2_id,
+                influences=[], # History of influence values
+            )
+            self.G_teams.add_edge(
+                team_2_id,
+                team_1_id,
+                influences=[], # History of influence values
+            )
+        else:
+            raise ValueError("Both teams must exist in the organization to add a connection.")
+        
+    def search(self, input: int | str) -> int | None:
+        if isinstance(input, int):
+            return input if input in self.all_ids else None
+        elif isinstance(input, str):
+            for node_id, attrs in self.G_teams.nodes(data=True):
+                if attrs.get("name") == input and attrs.get("name") is not None and attrs.get("name") != "":
+                    return node_id
+            for node_id, attrs in self.G_agents.nodes(data=True):
+                if attrs.get("name") == input and attrs.get("name") is not None and attrs.get("name") != "":
+                    return node_id
+            return None
+        else:
+            return None
+
+    @property
+    def stat(self) -> dict:
         return {
-            "name": self.name,
-            "agents": [
-                {
-                    "id": node_id,
-                    "name": data.get("name"),
-                    "department": data.get("department"),
-                    "parent": next(iter(self.G.neighbors(node_id)), None)  # Get the parent (first neighbor)
-                }
-                for node_id, data in self.G.nodes(data=True)
-            ]
+            "total_teams": self.G_teams.number_of_nodes(),
+            "total_agents": self.G_agents.number_of_nodes(),
+            "total_team_connections": self.G_teams.number_of_edges(),
+            "total_agent_connections": self.G_agents.number_of_edges(),
         }
     
-    def deserialize(self, data: dict):
+    def get_agent_opinion(self, agent: int | str) -> float:
         """
-        Deserialize object from a dictionary.
+        Get agent latest opinion.
         """
-        self.name = data.get("name", "Organization")
-        self.G.clear()
-        for agent in data.get("agents", []):
-            node_id = agent["id"]
-            name = agent.get("name")
-            department = agent.get("department")
-            parent = agent.get("parent")
-            self.G.add_node(node_id, name=name, department=department)
-            if parent is not None:
-                self.G.add_edge(parent, node_id)
+        opinions = self.get_agent_opinions_history(agent)
+        return opinions[-1]
+    
+    def set_agent_opinion(self, agent: int | str, opinion: float):
+        """
+        Set agent latest opinion.
+        """
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to set opinion.")
+        self.G_agents.nodes[agent_id]["opinions"].append(opinion)
 
-    def __eq__(self, value) -> bool:
-        if self.serialize() == value.serialize():
-            return True
-        return False
+    def get_agent_opinions_history(self, agent: int | str) -> list:
+        """
+        Get agent opinions history.
+        """
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to get opinion.")
+        return self.G_agents.nodes[agent_id].get("opinions", [])
+
+    def get_team_opinion(self, team: int | str) -> float:
+        """
+        Get team latest opinion.
+        """
+        opinions = self.get_team_opinions_history(team)
+        return opinions[-1]
+    
+    def set_team_opinion(self, team: int | str, opinion: float):
+        """
+        Set team latest opinion.
+        """
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization to set opinion.")
+        self.G_teams.nodes[team_id]["opinions"].append(opinion)
+
+    def get_team_opinions_history(self, team: int | str) -> list:
+        """
+        Get team opinions history.
+        """
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization to get opinion.")
+        return self.G_teams.nodes[team_id].get("opinions", [])
+    
+    def get_organization_opinion(self) -> float:
+        """
+        Get organization latest opinion.
+        """
+        return self.opinions[-1]
+    
+    def set_organization_opinion(self, opinion: float):
+        """
+        Set organization latest opinion.
+        """
+        self.opinions.append(opinion)
+
+    def get_organization_opinion_history(self) -> list:
+        """
+        Get organization opinions history.
+        """
+        return self.opinions
+    
+    def get_agent_influence(self, agent_1: int | str, agent_2: int | str) -> float:
+        """
+        Get latest influence value from agent_1 to agent_2.
+        """
+        influence_history = self.get_agent_influence_history(agent_1, agent_2)
+        return influence_history[-1]
+    
+    def set_agent_influence(self, agent_1: int | str, agent_2: int | str, influece: float):
+        """
+        Set latest influence value from agent_1 to agent_2.
+        """
+        agent_1_id = self.search(agent_1)
+        agent_2_id = self.search(agent_2)
+        if agent_1_id is None or agent_2_id is None:
+            raise ValueError("Both agents must exist in the organization to get influence value.")
+        if self.G_agents.has_edge(agent_1_id, agent_2_id):
+            self.G_agents.edges[agent_1_id, agent_2_id]["influences"].append(influece)
+        else:
+            raise ValueError("No connection exists between the specified agents.")
+        
+    def get_agent_influence_history(self, agent_1: int | str, agent_2: int | str) -> list:
+        """
+        Get influence history from agent_1 to agent_2.
+        """
+        agent_1_id = self.search(agent_1)
+        agent_2_id = self.search(agent_2)
+        if agent_1_id is None or agent_2_id is None:
+            raise ValueError("Both agents must exist in the organization to get influence value.")
+        if self.G_agents.has_edge(agent_1_id, agent_2_id):
+            return self.G_agents.edges[agent_1_id, agent_2_id].get("influences", [])
+        else:
+            raise ValueError("No connection exists between the specified agents.")
+
+    def get_team_influence(self, team_1: int | str, team_2: int | str) -> list:
+        """
+        Get latest influence from team_1 to team_2.
+        """
+        influence_history = self.get_team_influence_history(team_1, team_2)
+        return influence_history[-1]
+    
+    def set_team_influence(self, team_1: int | str, team_2: int | str, influence: float):
+        """
+        Set latest influence from team_1 to team_2.
+        """
+        team_1_id = self.search(team_1)
+        team_2_id = self.search(team_2)
+        if team_1_id is None or team_2_id is None:
+            raise ValueError("Both teams must exist in the organization to get influence value.")
+        if self.G_teams.has_edge(team_1_id, team_2_id):
+            self.G_teams.edges[team_1_id, team_2_id]["influences"].append(influence)
+        else:
+            raise ValueError("No connection exists between the specified teams.")
+
+    def get_team_influence_history(self, team_1: int | str, team_2: int | str) -> list:
+        """
+        Get influence history from team_1 to team_2.
+        """
+        team_1_id = self.search(team_1)
+        team_2_id = self.search(team_2)
+        if team_1_id is None or team_2_id is None:
+            raise ValueError("Both teams must exist in the organization to get influence value.")
+        if self.G_teams.has_edge(team_1_id, team_2_id):
+            return self.G_teams.edges[team_1_id, team_2_id].get("influences", [])
+        else:
+            raise ValueError("No connection exists between the specified teams.")
 
 
 if __name__ == "__main__":
-    org = Organization(name="MyCompany", ceo_name="Alice")
-    org.add_agent(name="Bob", parent="Alice", department="R&D")
-    org.add_agent(name="Charlie", parent="Bob", department="R&D")
-    org.add_agent(name="Chris", parent="Bob", department="R&D")
-    org.add_agent(name="David", parent="Alice", department="Sales")
-    org.draw()
+    org = Organization()
+    org.add_team(name="Team A")
+    org.add_team(name="Team B")
+    org.add_team_connection("Team A", "Team B")
+    org.add_agent(name="Agent 1", team="Team A")
+    org.add_agent(name="Agent 2", team="Team B")
+    org.add_agent(name="Agent 3", team="Team B")
+    org.add_agent(name="Agent 4", team="Team B")
+    org.add_agent_connection("Agent 2", "Agent 3")
+    org.add_agent_connection("Agent 3", "Agent 4")
+    org.add_agent_connection("Agent 2", "Agent 4")
+    print(org.stat)
+    org.show_agents()
+    #org.show_teams()
