@@ -8,9 +8,8 @@ def generate(
     teams_count: int,
     agents_count: int,
     agents_connectoion_probability_inside_team: float,
-    agents_connectoion_probability_outside_team: float,
     teams_connection_probability: float,
-    rng=None,
+    seed: int | np.random.Generator | None = None,
 ) -> Organization:
     # Validate inputs
     if teams_count <= 0:
@@ -19,14 +18,16 @@ def generate(
         raise ValueError("agents_count must be >= 0.")
     for p, name in [
         (agents_connectoion_probability_inside_team, "agents_connectoion_probability_inside_team"),
-        (agents_connectoion_probability_outside_team, "agents_connectoion_probability_outside_team"),
         (teams_connection_probability, "teams_connection_probability"),
     ]:
         if not (0.0 <= p <= 1.0):
             raise ValueError(f"{name} must be between 0 and 1.")
 
-    if rng is None:
-        rng = np.random.default_rng()
+    # RNG handling
+    if isinstance(seed, np.random.Generator):
+        rng = seed
+    else:
+        rng = np.random.default_rng(seed)
 
     org = Organization()
 
@@ -69,23 +70,23 @@ def generate(
             raise RuntimeError(f"Failed to resolve agent id for {agent_names[k]}.")
         agent_ids[k] = agent_id
 
-    # --- connect agents using IDs ---
-    for i, j in combinations(range(agents_count), 2):
-        same_team = (assigned_team_ids[i] == assigned_team_ids[j])
-        p = agents_connectoion_probability_inside_team if same_team else agents_connectoion_probability_outside_team
-        if rng.random() < p:
-            org.add_agent_connection(agent_ids[i], agent_ids[j])
+    # --- connect agents inside each team ---
+    for t in team_ids:
+        members = list(org.agents_from_team(t))
+        for a, b in combinations(members, 2):
+            if rng.random() < agents_connectoion_probability_inside_team:
+                org.add_agent_connection(a, b)
 
     return org
 
 
 if __name__ == "__main__":
     org = generate(
+        seed=42,
         teams_count=4,
         agents_count=20,
         agents_connectoion_probability_inside_team=0.5,
-        agents_connectoion_probability_outside_team=0.1,
         teams_connection_probability=0.3,
     )
     print(org.stat)
-    org.show()
+    org.show_agents()

@@ -32,8 +32,8 @@ class Model:
         if average_initial_opinion < -1.0 or average_initial_opinion > 1.0:
             raise ValueError("average_initial_opinion must be between -1.0 and 1.0")
         self.initialize_agents_opinion(average_initial_opinion)
-        self.initialize_agents_influence()
-        self.initialize_teams_influence()
+        self.initialize_agents_trust()
+        self.initialize_teams_trust()
 
     def initialize_agents_opinion(self, average_initial_opinion: float):
         """
@@ -53,58 +53,49 @@ class Model:
         for agent_id, opinion in zip(agent_ids, opinions):
             self.org.set_agent_opinion(agent_id, float(opinion))
 
-    def initialize_agents_influence(self):
+    def initialize_agents_trust(self):
         """
-        Assign initial influence values between agents from betweenness centrality.
-        """
-        """
-        Assign initial influence values between agents from betweenness centrality.
+        Assign initial trust values between agents from degree centrality.
 
         Strategy:
-        - Compute node betweenness centrality on org.G_agents
+        - Compute node degree centrality on org.G_agents
         - Normalize to [0,1]
-        - For each directed edge u->v, set influence based on centrality(u)
-        - Writes via org.set_agent_influence(u, v, influence)
+        - For each directed edge u->v, set trust based on centrality(u)
+        - Writes via org.set_agent_trust(u, v, trust)
         """
-        influence_min = 0.00
-        influence_max = 1.00
+        trust_min = 0.00
+        trust_max = 1.00
 
         G = self.org.G_agents
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
             return
 
-        # betweenness centrality on directed graph (normalized)
-        bc = nx.betweenness_centrality(G, normalized=True)
-        bc01 = normalize_01(bc)
-
-        # Initialize every directed edge u -> v using SOURCE node centrality (u)
+        dc_in = nx.in_degree_centrality(G)
         for u, v in G.edges():
-            infl = map_to_range(bc01.get(u, 0.0), influence_min, influence_max)
-            self.org.set_agent_influence(u, v, infl)
+            trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
+            self.org.set_agent_trust(u, v, trust)
 
-    def initialize_teams_influence(self):
+    def initialize_teams_trust(self):
         """
-        Assign initial influence values between teams from betweenness centrality.
+        Assign initial trust values between teams from degree centrality.
 
         Strategy:
-        - Compute node betweenness centrality on org.G_teams
+        - Compute node degree centrality on org.G_teams
         - Normalize to [0,1]
-        - For each directed edge u->v, set influence based on centrality(u)
-        - Writes via org.set_team_influence(u, v, influence)
+        - For each directed edge u->v, set trust based on centrality(u)
+        - Writes via org.set_team_trust(u, v, trust)
         """
-        influence_min = 0.00
-        influence_max = 1.00
+        trust_min = 0.00
+        trust_max = 1.00
 
         G = self.org.G_teams
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
             return
 
-        bc = nx.betweenness_centrality(G, normalized=True)
-        bc01 = normalize_01(bc)
-
+        dc_in = nx.in_degree_centrality(G)
         for u, v in G.edges():
-            infl = map_to_range(bc01.get(u, 0.0), influence_min, influence_max)
-            self.org.set_team_influence(u, v, infl)
+            trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
+            self.org.set_team_trust(u, v, trust)
 
     def update(self):
         """
@@ -129,7 +120,7 @@ class Model:
             # Update opinions of agents based on group opinion
             team_opinion = 0.0 ####
             self.org.set_team_opinion(team_id, team_opinion)
-            # Update influence between agents based on aggregated opinions
+            # Update trust between agents based on aggregated opinions
 
     def agents_use_technology(self):
         agents = self.org.all_agent_ids
@@ -170,4 +161,11 @@ if __name__ == "__main__":
         average_initial_opinion=0.0,
         seed=42
     )
-    print(model.org.get_agent_influence("Agent 5", "Agent 2"))
+    print(model.org.get_agent_trust("Agent 5", "Agent 2"))
+    print(model.org.get_agent_trust("Agent 2", "Agent 5"))
+
+    print(model.org.get_agent_trust("Agent 4", "Agent 2"))
+    print(model.org.get_agent_trust("Agent 2", "Agent 4"))
+
+    print(model.org.get_agent_trust("Agent 4", "Agent 3"))
+    print(model.org.get_agent_trust("Agent 3", "Agent 4"))

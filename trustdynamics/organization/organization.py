@@ -81,6 +81,11 @@ class Organization(Graphics):
             name=name,
             opinions=[], # History of team opinions
         )
+        self.G_teams.add_edge(
+            team_id,
+            team_id,
+            trusts=[], # History of self-trust values
+        )
 
     def add_agent(self, name: str | None = None, team: int | str = None):
         if not self._is_name_unique(name):
@@ -99,6 +104,11 @@ class Organization(Graphics):
             team=team_id,
             opinions=[], # History of agent opinions
         )
+        self.G_agents.add_edge(
+            agent_id,
+            agent_id,
+            trusts=[], # History of self-trust values
+        )
 
     def add_agent_connection(self, agent_1: int | str, agent_2: int | str):
         agent_1_id = self.search(agent_1)
@@ -111,12 +121,12 @@ class Organization(Graphics):
             self.G_agents.add_edge(
                 agent_1_id,
                 agent_2_id,
-                influences=[], # History of influence values
+                trusts=[], # History of trust values
             )
             self.G_agents.add_edge(
                 agent_2_id,
                 agent_1_id,
-                influences=[], # History of influence values
+                trusts=[], # History of trust values
             )
         else:
             raise ValueError("Both agents must exist in the organization to add a connection.")
@@ -128,12 +138,12 @@ class Organization(Graphics):
             self.G_teams.add_edge(
                 team_1_id,
                 team_2_id,
-                influences=[], # History of influence values
+                trusts=[], # History of trust values
             )
             self.G_teams.add_edge(
                 team_2_id,
                 team_1_id,
-                influences=[], # History of influence values
+                trusts=[], # History of trust values
             )
         else:
             raise ValueError("Both teams must exist in the organization to add a connection.")
@@ -157,8 +167,8 @@ class Organization(Graphics):
         return {
             "total_teams": self.G_teams.number_of_nodes(),
             "total_agents": self.G_agents.number_of_nodes(),
-            "total_team_connections": self.G_teams.number_of_edges(),
-            "total_agent_connections": self.G_agents.number_of_edges(),
+            "total_team_connections": int((self.G_teams.number_of_edges() - self.G_teams.number_of_nodes()) / 2), # exclude self-loop
+            "total_agent_connections": int((self.G_agents.number_of_edges() - self.G_agents.number_of_nodes()) / 2), # exclude self-loop
         }
     
     def get_agent_opinion(self, agent: int | str) -> float:
@@ -229,85 +239,88 @@ class Organization(Graphics):
         """
         return self.opinions
     
-    def get_agent_influence(self, agent_1: int | str, agent_2: int | str) -> float:
+    def get_agent_trust(self, agent_1: int | str, agent_2: int | str) -> float:
         """
-        Get latest influence value from agent_1 to agent_2.
+        Get latest trust value from agent_1 to agent_2.
         """
-        influence_history = self.get_agent_influence_history(agent_1, agent_2)
-        return influence_history[-1]
+        trust_history = self.get_agent_trust_history(agent_1, agent_2)
+        return trust_history[-1]
     
-    def set_agent_influence(self, agent_1: int | str, agent_2: int | str, influece: float):
+    def set_agent_trust(self, agent_1: int | str, agent_2: int | str, influece: float):
         """
-        Set latest influence value from agent_1 to agent_2.
+        Set latest trust value from agent_1 to agent_2.
         """
         agent_1_id = self.search(agent_1)
         agent_2_id = self.search(agent_2)
         if agent_1_id is None or agent_2_id is None:
-            raise ValueError("Both agents must exist in the organization to get influence value.")
+            raise ValueError("Both agents must exist in the organization to get trust value.")
         if self.G_agents.has_edge(agent_1_id, agent_2_id):
-            self.G_agents.edges[agent_1_id, agent_2_id]["influences"].append(influece)
+            self.G_agents.edges[agent_1_id, agent_2_id]["trusts"].append(influece)
         else:
             raise ValueError("No connection exists between the specified agents.")
         
-    def get_agent_influence_history(self, agent_1: int | str, agent_2: int | str) -> list:
+    def get_agent_trust_history(self, agent_1: int | str, agent_2: int | str) -> list:
         """
-        Get influence history from agent_1 to agent_2.
+        Get trust history from agent_1 to agent_2.
         """
         agent_1_id = self.search(agent_1)
         agent_2_id = self.search(agent_2)
         if agent_1_id is None or agent_2_id is None:
-            raise ValueError("Both agents must exist in the organization to get influence value.")
+            raise ValueError("Both agents must exist in the organization to get trust value.")
         if self.G_agents.has_edge(agent_1_id, agent_2_id):
-            return self.G_agents.edges[agent_1_id, agent_2_id].get("influences", [])
+            return self.G_agents.edges[agent_1_id, agent_2_id].get("trusts", [])
         else:
             raise ValueError("No connection exists between the specified agents.")
 
-    def get_team_influence(self, team_1: int | str, team_2: int | str) -> list:
+    def get_team_trust(self, team_1: int | str, team_2: int | str) -> list:
         """
-        Get latest influence from team_1 to team_2.
+        Get latest trust from team_1 to team_2.
         """
-        influence_history = self.get_team_influence_history(team_1, team_2)
-        return influence_history[-1]
+        trust_history = self.get_team_trust_history(team_1, team_2)
+        return trust_history[-1]
     
-    def set_team_influence(self, team_1: int | str, team_2: int | str, influence: float):
+    def set_team_trust(self, team_1: int | str, team_2: int | str, trust: float):
         """
-        Set latest influence from team_1 to team_2.
+        Set latest trust from team_1 to team_2.
         """
         team_1_id = self.search(team_1)
         team_2_id = self.search(team_2)
         if team_1_id is None or team_2_id is None:
-            raise ValueError("Both teams must exist in the organization to get influence value.")
+            raise ValueError("Both teams must exist in the organization to get trust value.")
         if self.G_teams.has_edge(team_1_id, team_2_id):
-            self.G_teams.edges[team_1_id, team_2_id]["influences"].append(influence)
+            self.G_teams.edges[team_1_id, team_2_id]["trusts"].append(trust)
         else:
             raise ValueError("No connection exists between the specified teams.")
 
-    def get_team_influence_history(self, team_1: int | str, team_2: int | str) -> list:
+    def get_team_trust_history(self, team_1: int | str, team_2: int | str) -> list:
         """
-        Get influence history from team_1 to team_2.
+        Get trust history from team_1 to team_2.
         """
         team_1_id = self.search(team_1)
         team_2_id = self.search(team_2)
         if team_1_id is None or team_2_id is None:
-            raise ValueError("Both teams must exist in the organization to get influence value.")
+            raise ValueError("Both teams must exist in the organization to get trust value.")
         if self.G_teams.has_edge(team_1_id, team_2_id):
-            return self.G_teams.edges[team_1_id, team_2_id].get("influences", [])
+            return self.G_teams.edges[team_1_id, team_2_id].get("trusts", [])
         else:
             raise ValueError("No connection exists between the specified teams.")
 
 
 if __name__ == "__main__":
+
     org = Organization()
+
     org.add_team(name="Team A")
     org.add_team(name="Team B")
+
     org.add_team_connection("Team A", "Team B")
+
     org.add_agent(name="Agent 1", team="Team A")
     org.add_agent(name="Agent 2", team="Team B")
     org.add_agent(name="Agent 3", team="Team B")
-    org.add_agent(name="Agent 4", team="Team B")
+
     org.add_agent_connection("Agent 2", "Agent 3")
-    org.add_agent_connection("Agent 3", "Agent 4")
-    org.add_agent_connection("Agent 2", "Agent 4")
+
     print(org.stat)
     org.show_agents()
     #org.show_teams()
