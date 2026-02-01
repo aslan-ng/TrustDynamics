@@ -14,4 +14,6 @@ plt.ylabel("Organization opinion")
 plt.title("Organization Opinion Over Time")
 plt.grid(True)
 plt.tight_layout()
+out_path = BASE_DIR / "organization_opinion.png"
+plt.savefig(out_path, dpi=300, bbox_inches="tight")
 plt.show()

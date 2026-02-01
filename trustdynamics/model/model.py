@@ -1,11 +1,12 @@
 import numpy as np
 
 from trustdynamics.model.update import Update
+from trustdynamics.model.initialization import Initialization
 from trustdynamics.model.serialization import Serialization
 from trustdynamics.organization import Organization
 
 
-class Model(Update, Serialization):
+class Model(Initialization, Update, Serialization):
     """
     Core simulation model for trust and opinion dynamics in a multi-level organization.
 
