@@ -524,7 +524,6 @@ if __name__ == "__main__":
     org.add_agent(name="Agent 3", team="Team B")
 
     org.add_agent_connection("Agent 2", "Agent 3")
-    org.set_agent_opinion("Agent 2", 5)
 
     print(org.stat)
     #org.show_agents()

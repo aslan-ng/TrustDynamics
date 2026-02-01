@@ -1,6 +1,8 @@
 import numpy as np
 import networkx as nx
 from tqdm import tqdm
+import json
+from pathlib import Path
 
 from trustdynamics.organization import Organization
 from trustdynamics.trust import Degroot
@@ -24,9 +26,11 @@ class Model:
     (agreement with others) and normative alignment with higher-level beliefs.
     """
 
+    SERIALIZATION_VERSION = 1
+
     def __init__(
         self,
-        org: Organization,
+        organization: Organization,
         technology_success_rate: float = 1.0,
         tech_successful_delta: float = 0.05,
         tech_failure_delta: float = -0.15,
@@ -93,7 +97,7 @@ class Model:
             Random seed for reproducibility. If None, randomness is not seeded.
         """
         self.rng = np.random.default_rng(seed)
-        self.org = org
+        self.organization = organization
 
         if technology_success_rate < 0.0 or technology_success_rate > 1.0:
             raise ValueError("technology_success_rate must be between 0.0 and 1.0")
@@ -142,7 +146,7 @@ class Model:
         """
         Assign initial agents opinions.
         """
-        agent_ids = list(self.org.all_agent_ids)
+        agent_ids = list(self.organization.all_agent_ids)
         n = len(agent_ids)
         if n == 0:
             return
@@ -154,7 +158,7 @@ class Model:
             max_value=1.0,
         )
         for agent_id, opinion in zip(agent_ids, opinions):
-            self.org.set_agent_opinion(agent_id, float(opinion))
+            self.organization.set_agent_opinion(agent_id, float(opinion))
 
     def initialize_agents_trust(self):
         """
@@ -163,14 +167,14 @@ class Model:
         trust_min = 0.01
         trust_max = 0.99
 
-        G = self.org.G_agents
+        G = self.organization.G_agents
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
             return
 
         dc_in = nx.in_degree_centrality(G)
         for u, v in G.edges():
             trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
-            self.org.set_agent_trust(u, v, trust)
+            self.organization.set_agent_trust(u, v, trust)
 
     def initialize_teams_trust(self):
         """
@@ -179,14 +183,14 @@ class Model:
         trust_min = 0.01
         trust_max = 0.99
 
-        G = self.org.G_teams
+        G = self.organization.G_teams
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
             return
 
         dc_in = nx.in_degree_centrality(G)
         for u, v in G.edges():
             trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
-            self.org.set_team_trust(u, v, trust)
+            self.organization.set_team_trust(u, v, trust)
 
     def run(
         self,
@@ -239,41 +243,41 @@ class Model:
         Calculate team opinion from aggregating agents opinions.
         """
         # If there are no teams, nothing to do
-        if len(self.org.all_team_ids) == 0:
+        if len(self.organization.all_team_ids) == 0:
             return
 
-        for team_id in self.org.all_team_ids:
-            agents = list(self.org.agents_from_team(team_id))
+        for team_id in self.organization.all_team_ids:
+            agents = list(self.organization.agents_from_team(team_id))
             if len(agents) == 0:
                 # Optional: define behavior for empty teams
-                # self.org.set_team_opinion(team_id, 0.0)
+                # self.organization.set_team_opinion(team_id, 0.0)
                 continue
 
             if len(agents) == 1:
                 # Team opinion equals the only agent's current opinion
                 only_agent = next(iter(agents))
-                self.org.set_team_opinion(team_id, float(self.org.get_agent_opinion(only_agent)))
+                self.organization.set_team_opinion(team_id, float(self.organization.get_agent_opinion(only_agent)))
                 continue
             
             # Run DeGroot to convergence
-            W, x0 = self.org.agent_influence_and_opinions(team_id)
+            W, x0 = self.organization.agent_influence_and_opinions(team_id)
             dg = Degroot(W)
             res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
             x_final = res["final_opinions"]
             team_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
-            self.org.set_team_opinion(team_id, team_opinion)
+            self.organization.set_team_opinion(team_id, team_opinion)
 
     def update_organization_opinion(self):
         """
         Calculate organization opinion from aggregating team opinions.
         """
         # Run DeGroot to convergence
-        W, x0 = self.org.team_influence_and_opinions()
+        W, x0 = self.organization.team_influence_and_opinions()
         dg = Degroot(W)
         res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
         x_final = res["final_opinions"]        
         organization_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
-        self.org.set_organization_opinion(organization_opinion)
+        self.organization.set_organization_opinion(organization_opinion)
 
     def update_teams_trust(self):
         """
@@ -283,10 +287,10 @@ class Model:
         neighbor_trust_learning_rate = self.teams_neighbor_trust_learning_rate
         w_agree = self.teams_homophily_normative_tradeoff  # 0..1, higher => more homophily, lower => more normative
         
-        organization_opinion = self.org.get_organization_opinion()
-        for team_id in self.org.all_team_ids:
-            team_opinion = self.org.get_team_opinion(team_id)
-            team_self_trust = self.org.get_team_trust(team_1=team_id, team_2=team_id) # confidence
+        organization_opinion = self.organization.get_organization_opinion()
+        for team_id in self.organization.all_team_ids:
+            team_opinion = self.organization.get_team_opinion(team_id)
+            team_self_trust = self.organization.get_team_trust(team_1=team_id, team_2=team_id) # confidence
             team_organization_opinion_distance = abs(team_opinion - organization_opinion) # how “deviant” team is from org
             
             # Update self-trust
@@ -294,13 +298,13 @@ class Model:
             new_team_self_trust = (1 - self_trust_learning_rate) * team_self_trust + \
                                   (self_trust_learning_rate * d_TO) # Smooth update (inertia)
             new_team_self_trust = float(np.clip(new_team_self_trust, 0.0, 1.0)) # assure it is between 0 and 1
-            self.org.set_team_trust(team_1=team_id, team_2=team_id, trust=new_team_self_trust)
+            self.organization.set_team_trust(team_1=team_id, team_2=team_id, trust=new_team_self_trust)
 
             # Update trust in neighbors
-            teams_connected = self.org.teams_connected_to(team_id)
+            teams_connected = self.organization.teams_connected_to(team_id)
             for neighbor_id in teams_connected:
-                neighbor_opinion = self.org.get_team_opinion(neighbor_id)
-                neighbor_trust = self.org.get_team_trust(team_1=team_id, team_2=neighbor_id)
+                neighbor_opinion = self.organization.get_team_opinion(neighbor_id)
+                neighbor_trust = self.organization.get_team_trust(team_1=team_id, team_2=neighbor_id)
                 team_neighbor_opinion_distance = abs(team_opinion - neighbor_opinion) # agreement / homophily
                 organization_neighbor_opinion_distance = abs(organization_opinion - neighbor_opinion) # normative
                 
@@ -312,7 +316,7 @@ class Model:
                 new_neighbor_trust = (1.0 - neighbor_trust_learning_rate) * neighbor_trust + \
                                                     (neighbor_trust_learning_rate * target_neighbor_trust)
                 new_neighbor_trust = float(np.clip(new_neighbor_trust, 0.0, 1.0)) # keep in [0, 1]
-                self.org.set_team_trust(team_1=team_id, team_2=neighbor_id, trust=new_neighbor_trust)
+                self.organization.set_team_trust(team_1=team_id, team_2=neighbor_id, trust=new_neighbor_trust)
                 
     def update_agents_trust(self):
         """
@@ -322,12 +326,12 @@ class Model:
         neighbor_trust_learning_rate = self.agents_neighbor_trust_learning_rate
         w_agree = self.agents_homophily_normative_tradeoff  # 0..1, higher => more homophily, lower => more normative
 
-        for team_id in self.org.all_team_ids:
-            team_opinion = self.org.get_team_opinion(team_id)
-            agent_ids = self.org.agents_from_team(team_id)
+        for team_id in self.organization.all_team_ids:
+            team_opinion = self.organization.get_team_opinion(team_id)
+            agent_ids = self.organization.agents_from_team(team_id)
             for agent_id in agent_ids:
-                agent_opinion = self.org.get_agent_opinion(agent_id)
-                agent_self_trust = self.org.get_agent_trust(agent_1=agent_id, agent_2=agent_id)
+                agent_opinion = self.organization.get_agent_opinion(agent_id)
+                agent_self_trust = self.organization.get_agent_trust(agent_1=agent_id, agent_2=agent_id)
 
                 # Update self-trust
                 agent_team_distance = abs(agent_opinion - team_opinion)  # 0..2 if opinions in [-1, 1]
@@ -335,12 +339,12 @@ class Model:
                 new_agent_self_trust = (1.0 - self_trust_learning_rate) * agent_self_trust + \
                                     (self_trust_learning_rate * d_AT)
                 new_agent_self_trust = float(np.clip(new_agent_self_trust, 0.0, 1.0))
-                self.org.set_agent_trust(agent_1=agent_id, agent_2=agent_id, trust=new_agent_self_trust)
+                self.organization.set_agent_trust(agent_1=agent_id, agent_2=agent_id, trust=new_agent_self_trust)
 
-                agents_connected = self.org.agents_connected_to(agent_id)
+                agents_connected = self.organization.agents_connected_to(agent_id)
                 for neighbor_id in agents_connected:
-                    neighbor_opinion = self.org.get_agent_opinion(neighbor_id)
-                    neighbor_trust = self.org.get_agent_trust(agent_1=agent_id, agent_2=neighbor_id)
+                    neighbor_opinion = self.organization.get_agent_opinion(neighbor_id)
+                    neighbor_trust = self.organization.get_agent_trust(agent_1=agent_id, agent_2=neighbor_id)
 
                     # Update trust in neighbors
                     agent_neighbor_distance = abs(agent_opinion - neighbor_opinion)
@@ -354,32 +358,164 @@ class Model:
                     new_neighbor_trust = (1.0 - neighbor_trust_learning_rate) * neighbor_trust + \
                                         (neighbor_trust_learning_rate * target_neighbor_trust)
                     new_neighbor_trust = float(np.clip(new_neighbor_trust, 0.0, 1.0))
-                    self.org.set_agent_trust(agent_1=agent_id, agent_2=neighbor_id, trust=new_neighbor_trust)
+                    self.organization.set_agent_trust(agent_1=agent_id, agent_2=neighbor_id, trust=new_neighbor_trust)
 
     def agents_use_technology(self):
         """
         Agents opinions change when they use technology.
         """
-        agents = self.org.all_agent_ids
+        agents = self.organization.all_agent_ids
         for agent_id in agents:
-            current_opinion = self.org.get_agent_opinion(agent_id)
+            current_opinion = self.organization.get_agent_opinion(agent_id)
             tech_successful: bool = self.rng.random() < self.technology_success_rate
             if tech_successful:
                 new_opinion = min(current_opinion + self.tech_successful_delta, 1.0)
             else:
                 new_opinion = max(current_opinion + self.tech_failure_delta, -1.0)
-            self.org.set_agent_opinion(agent_id, new_opinion)
+            self.organization.set_agent_opinion(agent_id, new_opinion)
+
+    @staticmethod
+    def _rng_state_to_jsonable(state: dict) -> dict:
+        """
+        Convert numpy RNG state to JSON-safe structures.
+        """
+        out = {}
+        for k, v in state.items():
+            if isinstance(v, np.ndarray):
+                out[k] = v.tolist()
+            elif isinstance(v, (np.integer, np.floating)):
+                out[k] = v.item()
+            else:
+                out[k] = v
+        return out
+
+    @staticmethod
+    def _rng_state_from_jsonable(state: dict) -> dict:
+        """
+        Convert JSON-safe RNG state back to numpy-compatible structures.
+        """
+        out = {}
+        for k, v in state.items():
+            # numpy bit_generator.state expects certain fields as arrays
+            if isinstance(v, list):
+                out[k] = np.array(v, dtype=np.uint64)
+            else:
+                out[k] = v
+        return out
+
+    def to_dict(self) -> dict:
+        """
+        Serialize the full model state to a JSON-safe dict.
+
+        Includes:
+        - model configuration parameters
+        - organization state (graphs + histories)
+        - RNG state (to allow exact continuation)
+        """
+        return {
+            "schema": {
+                "name": "trustdynamics.model.Model",
+                "version": self.SERIALIZATION_VERSION,
+            },
+            "config": {
+                "technology_success_rate": self.technology_success_rate,
+                "tech_successful_delta": self.tech_successful_delta,
+                "tech_failure_delta": self.tech_failure_delta,
+                "agents_self_trust_learning_rate": self.agents_self_trust_learning_rate,
+                "agents_neighbor_trust_learning_rate": self.agents_neighbor_trust_learning_rate,
+                "agents_homophily_normative_tradeoff": self.agents_homophily_normative_tradeoff,
+                "teams_self_trust_learning_rate": self.teams_self_trust_learning_rate,
+                "teams_neighbor_trust_learning_rate": self.teams_neighbor_trust_learning_rate,
+                "teams_homophily_normative_tradeoff": self.teams_homophily_normative_tradeoff,
+            },
+            "rng": {
+                # Exact-resume support:
+                # numpy stores tuples/arrays; convert to JSON-safe types.
+                "bit_generator": self.rng.bit_generator.__class__.__name__,
+                "state": self._rng_state_to_jsonable(self.rng.bit_generator.state),
+            },
+            "organization": self.organization.to_dict(),
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Model":
+        """
+        Deserialize a model from a dict produced by `to_dict()`.
+
+        Restores:
+        - organization state
+        - model parameters
+        - RNG state (exact continuation)
+        """
+        schema = data.get("schema", {})
+        version = schema.get("version", None)
+        if version != cls.SERIALIZATION_VERSION:
+            raise ValueError(
+                f"Unsupported serialization version: {version}. "
+                f"Expected {cls.SERIALIZATION_VERSION}."
+            )
+
+        cfg = data["config"]
+
+        org = Organization.from_dict(data["organization"])
+
+        # Create a model with a dummy seed, then overwrite RNG state.
+        model = cls(
+            organization=org,
+            technology_success_rate=cfg["technology_success_rate"],
+            tech_successful_delta=cfg["tech_successful_delta"],
+            tech_failure_delta=cfg["tech_failure_delta"],
+            average_initial_opinion=0.0,  # won't be used; org already has opinions
+            agents_self_trust_learning_rate=cfg["agents_self_trust_learning_rate"],
+            agents_neighbor_trust_learning_rate=cfg["agents_neighbor_trust_learning_rate"],
+            agents_homophily_normative_tradeoff=cfg["agents_homophily_normative_tradeoff"],
+            teams_self_trust_learning_rate=cfg["teams_self_trust_learning_rate"],
+            teams_neighbor_trust_learning_rate=cfg["teams_neighbor_trust_learning_rate"],
+            teams_homophily_normative_tradeoff=cfg["teams_homophily_normative_tradeoff"],
+            seed=0,
+        )
+
+        # IMPORTANT: the __init__ currently re-initializes opinions/trusts.
+        # For a true "load", we must NOT overwrite org histories.
+        # So: remove these init calls from __init__ OR gate them behind a flag.
+        # See the small refactor below.
+
+        # Restore RNG state
+        rng_blob = data.get("rng", None)
+        if rng_blob is not None:
+            model.rng.bit_generator.state = cls._rng_state_from_jsonable(rng_blob["state"])
+
+        return model
+    
+    def save(self, path: str | Path) -> None:
+        """
+        Write the model to a JSON file.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "Model":
+        """
+        Read the model from a JSON file.
+        """
+        path = Path(path)
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        return cls.from_dict(data)
 
 
 if __name__ == "__main__":
     
-    from trustdynamics.organization.samples import organization_0 as org
+    from trustdynamics.organization.samples import organization_0 as organization
 
     model = Model(
-        org=org,
+        organization=organization,
         technology_success_rate=0.9,
         average_initial_opinion=0.0,
         seed=42
     )
     model.run(10)
-    print(model.org.get_organization_opinion_history())
+    print(model.organization.get_organization_opinion_history())
