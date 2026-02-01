@@ -1,7 +1,8 @@
 import networkx as nx
+import pandas as pd
 
 from trustdynamics.organization.graphics import Graphics
-from trustdynamics.utils.new_id import new_unique_id
+from trustdynamics.utils import new_unique_id, row_stochasticize
 
 
 class Organization(Graphics):
@@ -304,6 +305,87 @@ class Organization(Graphics):
             return self.G_teams.edges[team_1_id, team_2_id].get("trusts", [])
         else:
             raise ValueError("No connection exists between the specified teams.")
+        
+    def agent_influence_and_opinions(
+            self,
+            team: int | str,
+            *,
+            history_index: int = -1,
+        ) -> tuple[pd.DataFrame, pd.Series]:
+            """
+            Returns (W, x) aligned on the same agent ordering.
+
+            W[i, j]: influence weight agent i assigns to agent j
+            x[i]: latest opinion of agent i
+            """
+            agent_ids = sorted(self.agents_from_team(team))
+
+            # --- Influence matrix ---
+            W = pd.DataFrame(0.0, index=agent_ids, columns=agent_ids)
+
+            for i in agent_ids:
+                for j in agent_ids:
+                    if self.G_agents.has_edge(i, j):
+                        trusts = self.get_agent_trust_history(i, j)
+                        W.loc[i, j] = float(trusts[history_index]) if len(trusts) > 0 else 0.0
+
+            W = row_stochasticize(W, self_weight_if_isolated=1.0)
+
+            # --- Opinion vector ---
+            x_vals = []
+            for a in agent_ids:
+                hist = self.get_agent_opinions_history(a)
+                if len(hist) == 0:
+                    raise ValueError(f"Agent {a} has no opinion history.")
+                x_vals.append(float(hist[history_index]))
+
+            x = pd.Series(x_vals, index=agent_ids, name="opinions")
+
+            # --- Safety invariants ---
+            assert W.index.equals(W.columns)
+            assert W.index.equals(x.index)
+
+            return W, x
+    
+    def team_influence_and_opinions(
+        self,
+        *,
+        history_index: int = -1,
+    ) -> tuple[pd.DataFrame, pd.Series]:
+        """
+        Returns (W, x) aligned on the same team ordering.
+
+        W[i, j]: influence weight team i assigns to team j
+        x[i]: latest opinion of team i
+        """
+        team_ids = sorted(list(self.all_team_ids))
+
+        # --- Influence matrix ---
+        W = pd.DataFrame(0.0, index=team_ids, columns=team_ids)
+
+        for i in team_ids:
+            for j in team_ids:
+                if self.G_teams.has_edge(i, j):
+                    trusts = self.get_team_trust_history(i, j)
+                    W.loc[i, j] = float(trusts[history_index]) if len(trusts) > 0 else 0.0
+
+        W = row_stochasticize(W, self_weight_if_isolated=1.0)
+
+        # --- Opinion vector ---
+        x_vals = []
+        for t in team_ids:
+            hist = self.get_team_opinions_history(t)
+            if len(hist) == 0:
+                raise ValueError(f"Team {t} has no opinion history.")
+            x_vals.append(float(hist[history_index]))
+
+        x = pd.Series(x_vals, index=team_ids, name="opinions")
+
+        # --- Safety invariants ---
+        assert W.index.equals(W.columns)
+        assert W.index.equals(x.index)
+
+        return W, x
 
 
 if __name__ == "__main__":

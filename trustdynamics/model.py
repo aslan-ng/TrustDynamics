@@ -2,10 +2,10 @@ import numpy as np
 import networkx as nx
 
 from trustdynamics.organization import Organization
+from trustdynamics.trust import Degroot
 from trustdynamics.utils import (
     bounded_random_with_exact_mean,
     map_to_range,
-    normalize_01,
 )
 
 
@@ -34,6 +34,7 @@ class Model:
         self.initialize_agents_opinion(average_initial_opinion)
         self.initialize_agents_trust()
         self.initialize_teams_trust()
+        self.initialize_teams_opinion()
 
     def initialize_agents_opinion(self, average_initial_opinion: float):
         """
@@ -56,12 +57,6 @@ class Model:
     def initialize_agents_trust(self):
         """
         Assign initial trust values between agents from degree centrality.
-
-        Strategy:
-        - Compute node degree centrality on org.G_agents
-        - Normalize to [0,1]
-        - For each directed edge u->v, set trust based on centrality(u)
-        - Writes via org.set_agent_trust(u, v, trust)
         """
         trust_min = 0.00
         trust_max = 1.00
@@ -78,12 +73,6 @@ class Model:
     def initialize_teams_trust(self):
         """
         Assign initial trust values between teams from degree centrality.
-
-        Strategy:
-        - Compute node degree centrality on org.G_teams
-        - Normalize to [0,1]
-        - For each directed edge u->v, set trust based on centrality(u)
-        - Writes via org.set_team_trust(u, v, trust)
         """
         trust_min = 0.00
         trust_max = 1.00
@@ -96,6 +85,43 @@ class Model:
         for u, v in G.edges():
             trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
             self.org.set_team_trust(u, v, trust)
+
+    def initialize_teams_opinion(self):
+        """
+        Assign initial team opinions by aggregating member agents' opinions
+        via DeGroot dynamics within each team.
+
+        Team opinion = mean of DeGroot final opinions of its agents.
+        """
+        # If there are no teams, nothing to do
+        if len(self.org.all_team_ids) == 0:
+            return
+
+        for team_id in self.org.all_team_ids:
+            agents = list(self.org.agents_from_team(team_id))
+            if len(agents) == 0:
+                # Optional: define behavior for empty teams
+                # self.org.set_team_opinion(team_id, 0.0)
+                continue
+
+            if len(agents) == 1:
+                # Team opinion equals the only agent's current opinion
+                only_agent = next(iter(agents))
+                self.org.set_team_opinion(team_id, float(self.org.get_agent_opinion(only_agent)))
+                continue
+            
+            # Build aligned influence matrix W and opinion vector x0
+            W, x0 = self.org.agent_influence_and_opinions(team_id, history_index=-1)
+            print(x0)
+            # Run DeGroot to convergence
+            dg = Degroot(W)
+            res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
+            x_final = res["final_opinions"]
+
+            # Aggregate to a single team opinion (robust choice)
+            team_opinion = float(x_final.mean())
+
+            self.org.set_team_opinion(team_id, team_opinion)
 
     def update(self):
         """
@@ -143,12 +169,6 @@ class Model:
             # Update opinions of agents based on group opinion
             team_opinion = 0.0 ####
             self.org.set_team_opinion(team_id, team_opinion)
-        
-
-
-
-
-
 
 
 if __name__ == "__main__":
@@ -161,11 +181,12 @@ if __name__ == "__main__":
         average_initial_opinion=0.0,
         seed=42
     )
-    print(model.org.get_agent_trust("Agent 5", "Agent 2"))
-    print(model.org.get_agent_trust("Agent 2", "Agent 5"))
+    #print(model.org.get_agent_trust("Agent 5", "Agent 2"))
+    #print(model.org.get_agent_trust("Agent 2", "Agent 5"))
 
-    print(model.org.get_agent_trust("Agent 4", "Agent 2"))
-    print(model.org.get_agent_trust("Agent 2", "Agent 4"))
+    #print(model.org.get_agent_trust("Agent 4", "Agent 2"))
+    #print(model.org.get_agent_trust("Agent 2", "Agent 4"))
 
-    print(model.org.get_agent_trust("Agent 4", "Agent 3"))
-    print(model.org.get_agent_trust("Agent 3", "Agent 4"))
+    #print(model.org.get_agent_trust("Agent 4", "Agent 3"))
+    #print(model.org.get_agent_trust("Agent 3", "Agent 4"))
+    print(model.org.get_team_opinion("Team A"))
