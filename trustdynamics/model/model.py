@@ -134,6 +134,10 @@ class Model(Initialization, Update, Serialization):
             raise ValueError("teams_homophily_normative_tradeoff must be between 0.0 and 1.0")
         self.teams_homophily_normative_tradeoff = teams_homophily_normative_tradeoff
 
+    @property
+    def step(self):
+        return self.organization.__len__()
+
 
 if __name__ == "__main__":
     

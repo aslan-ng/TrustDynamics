@@ -1,3 +1,4 @@
+import numpy as np
 import networkx as nx
 import pandas as pd
 
@@ -176,12 +177,12 @@ class Organization(Serialization, Graphics):
             "total_agent_connections": int((self.G_agents.number_of_edges() - self.G_agents.number_of_nodes()) / 2), # exclude self-loop
         }
     
-    def get_agent_opinion(self, agent: int | str) -> float:
+    def get_agent_opinion(self, agent: int | str, history_index: int = -1) -> float:
         """
-        Get agent latest opinion.
+        Get agent opinion.
         """
         opinions = self.get_agent_opinions_history(agent)
-        return opinions[-1]
+        return opinions[history_index]
     
     def set_agent_opinion(self, agent: int | str, opinion: float):
         """
@@ -202,12 +203,12 @@ class Organization(Serialization, Graphics):
             raise ValueError("Agent must exist in the organization to get opinion.")
         return self.G_agents.nodes[agent_id].get("opinions", [])
 
-    def get_team_opinion(self, team: int | str) -> float:
+    def get_team_opinion(self, team: int | str, history_index: int = -1) -> float:
         """
-        Get team latest opinion.
+        Get team opinion.
         """
         opinions = self.get_team_opinions_history(team)
-        return opinions[-1]
+        return opinions[history_index]
     
     def set_team_opinion(self, team: int | str, opinion: float):
         """
@@ -228,11 +229,11 @@ class Organization(Serialization, Graphics):
             raise ValueError("Team must exist in the organization to get opinion.")
         return self.G_teams.nodes[team_id].get("opinions", [])
     
-    def get_organization_opinion(self) -> float:
+    def get_organization_opinion(self, history_index: int = -1) -> float:
         """
-        Get organization latest opinion.
+        Get organization opinion.
         """
-        return self.opinions[-1]
+        return self.opinions[history_index]
     
     def set_organization_opinion(self, opinion: float):
         """
@@ -247,12 +248,12 @@ class Organization(Serialization, Graphics):
         """
         return self.opinions
     
-    def get_agent_trust(self, agent_1: int | str, agent_2: int | str) -> float:
+    def get_agent_trust(self, agent_1: int | str, agent_2: int | str, history_index: int = -1) -> float:
         """
-        Get latest trust value from agent_1 to agent_2.
+        Get trust value from agent_1 to agent_2.
         """
         trust_history = self.get_agent_trust_history(agent_1, agent_2)
-        return trust_history[-1]
+        return trust_history[history_index]
     
     def set_agent_trust(self, agent_1: int | str, agent_2: int | str, trust: float):
         """
@@ -281,12 +282,12 @@ class Organization(Serialization, Graphics):
         else:
             raise ValueError("No connection exists between the specified agents.")
 
-    def get_team_trust(self, team_1: int | str, team_2: int | str) -> list:
+    def get_team_trust(self, team_1: int | str, team_2: int | str, history_index: int = -1) -> list:
         """
-        Get latest trust from team_1 to team_2.
+        Get trust from team_1 to team_2.
         """
         trust_history = self.get_team_trust_history(team_1, team_2)
-        return trust_history[-1]
+        return trust_history[history_index]
     
     def set_team_trust(self, team_1: int | str, team_2: int | str, trust: float):
         """
@@ -423,7 +424,31 @@ class Organization(Serialization, Graphics):
         #connected.update(self.G_agents.predecessors(agent_id)) # Incoming neighbors (other -> agent)
         connected.discard(agent_id) # Remove self (you always have a self-loop)
         return connected
-
+    
+    def average_opinions(self, agents: list | set | tuple | None = None, history_index: int = -1):
+        if agents is None:
+            agent_ids = self.all_agent_ids
+        else:
+            agent_ids = []
+            for agent in agents:
+                agent_ids.append(self.search(agent))
+        opinions = []
+        for agent_id in agent_ids:
+            opinion = self.get_agent_opinion(agent=agent_id, history_index=history_index)
+            opinions.append(opinion)
+        return np.array(opinions).mean()
+    
+    def average_opinions_history(self, agents: list | set | tuple | None = None):
+        result = []
+        steps = range(self.__len__())
+        for step in steps:
+            average_opinion = self.average_opinions(agents=agents, history_index=step)
+            result.append(average_opinion)
+        return result
+    
+    def __len__(self):
+        return len(self.get_organization_opinion_history())
+            
 
 if __name__ == "__main__":
 

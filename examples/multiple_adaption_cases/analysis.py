@@ -22,6 +22,6 @@ plt.title("Organization Opinion vs. Technology Success Rate")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-out_path = BASE_DIR / "organization_opinion_vs_tech_success_rate.png"
+out_path = BASE_DIR / "figure.png"
 plt.savefig(out_path, dpi=300, bbox_inches="tight")
 plt.show()
