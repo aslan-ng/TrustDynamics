@@ -1,5 +1,6 @@
 import numpy as np
 import networkx as nx
+import tqdm
 
 from trustdynamics.organization import Organization
 from trustdynamics.trust import Degroot
@@ -31,6 +32,7 @@ class Model:
 
         if average_initial_opinion < -1.0 or average_initial_opinion > 1.0:
             raise ValueError("average_initial_opinion must be between -1.0 and 1.0")
+ 
         self.initialize_agents_opinion(average_initial_opinion)
         self.initialize_agents_trust()
         self.initialize_teams_trust()
@@ -85,6 +87,25 @@ class Model:
             trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
             self.org.set_team_trust(u, v, trust)
 
+    def run(
+        self,
+        steps: int = 1,
+        show_progress: bool = True,
+    ):
+        """
+        Run the model for a fixed number of steps.
+        """
+        if steps <= 0:
+            raise ValueError("steps must be > 0")
+
+        iterator = range(steps)
+        if show_progress:
+            iterator = tqdm(iterator, total=steps, desc="Running model")
+
+        for _ in iterator:
+            self.update()
+        
+
     def update(self):
         """
         1. Update the agents opinions based on communication
@@ -121,32 +142,21 @@ class Model:
                 self.org.set_team_opinion(team_id, float(self.org.get_agent_opinion(only_agent)))
                 continue
             
-            # Build aligned influence matrix W and opinion vector x0
-            W, x0 = self.org.agent_influence_and_opinions(team_id)
-            
             # Run DeGroot to convergence
+            W, x0 = self.org.agent_influence_and_opinions(team_id)
             dg = Degroot(W)
             res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
             x_final = res["final_opinions"]
-            #print(f"{team_id} initial:\n{x0}")
-            #print(f"{team_id} final:\n{x_final}")
-
-            # Aggregate to a single team opinion (robust choice)
-            team_opinion = float(x_final.mean())
-
+            team_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
             self.org.set_team_opinion(team_id, team_opinion)
 
     def update_organization_opinion(self):
-        W, x0 = self.org.team_influence_and_opinions()
         # Run DeGroot to convergence
+        W, x0 = self.org.team_influence_and_opinions()
         dg = Degroot(W)
         res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
-        x_final = res["final_opinions"]
-        #print(f"organization initial:\n{x0}")
-        #print(f"organization final:\n{x_final}")
-
-        # Aggregate to a single team opinion (robust choice)
-        organization_opinion = float(x_final.mean())
+        x_final = res["final_opinions"]        
+        organization_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
         self.org.set_organization_opinion(organization_opinion)
 
     def agents_communicate_within_teams(self):
@@ -174,17 +184,6 @@ class Model:
             else:
                 new_opinion = max(current_opinion + self.tech_failure_delta, -1.0)
             self.org.set_agent_opinion(agent_id, new_opinion)
-
-    def teams_communicate_with_teams(self):
-        """
-        Aggregate team opinions to form organization opinion.
-        """
-        team_ids = self.org.all_team_ids
-        for team_id in team_ids:
-            ####
-            # Update opinions of agents based on group opinion
-            team_opinion = 0.0 ####
-            self.org.set_team_opinion(team_id, team_opinion)
 
 
 if __name__ == "__main__":
