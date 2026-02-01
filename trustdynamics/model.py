@@ -59,8 +59,8 @@ class Model:
         """
         Assign initial trust values between agents from degree centrality.
         """
-        trust_min = 0.00
-        trust_max = 1.00
+        trust_min = 0.05
+        trust_max = 0.95
 
         G = self.org.G_agents
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
@@ -75,8 +75,8 @@ class Model:
         """
         Assign initial trust values between teams from degree centrality.
         """
-        trust_min = 0.00
-        trust_max = 1.00
+        trust_min = 0.05
+        trust_max = 0.95
 
         G = self.org.G_teams
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
@@ -104,7 +104,6 @@ class Model:
 
         for _ in iterator:
             self.update()
-        
 
     def update(self):
         """
@@ -114,7 +113,7 @@ class Model:
         """
         self.update_teams_opinion()
         self.update_organization_opinion()
-        #self.update_teams_trust()
+        self.update_teams_trust()
         #self.update_agents_trust()
         #self.agents_use_technology()
 
@@ -158,6 +157,44 @@ class Model:
         x_final = res["final_opinions"]        
         organization_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
         self.org.set_organization_opinion(organization_opinion)
+
+    def update_teams_trust(self):
+        self_trust_learning_rate = 0.1
+        neighbor_trust_learning_rate = 0.1
+        w_agree = 0.5  # 0..1, higher => more homophily, lower => more normative
+        
+        organization_opinion = self.org.get_organization_opinion()
+        for team_id in self.org.all_team_ids:
+            team_opinion = self.org.get_team_opinion(team_id)
+            team_self_trust = self.org.get_team_trust(team_1=team_id, team_2=team_id) # confidence
+            team_organization_opinion_distance = abs(team_opinion - organization_opinion) # how “deviant” team is from org
+            # Update self-trust
+            d_TO = 1.0 - team_organization_opinion_distance / 2.0 # 1 when aligned, 0 when maximally deviant
+            new_team_self_trust = (1 - self_trust_learning_rate) * team_self_trust + \
+                                  (self_trust_learning_rate * d_TO) # Smooth update (inertia)
+            new_team_self_trust = float(np.clip(new_team_self_trust, 0.0, 1.0)) # assure it is between 0 and 1
+            self.org.set_team_trust(team_1=team_id, team_2=team_id, trust=new_team_self_trust)
+
+            # Update trust in neighbors
+            teams_connected = self.org.teams_connected_to(team_id)
+            for neighbor_id in teams_connected:
+                neighbor_opinion = self.org.get_team_opinion(neighbor_id)
+                neighbor_trust = self.org.get_team_trust(team_1=team_id, team_2=neighbor_id)
+                team_neighbor_opinion_distance = abs(team_opinion - neighbor_opinion) # agreement / homophily
+                organization_neighbor_opinion_distance = abs(organization_opinion - neighbor_opinion) # normative
+                
+                # Map distances (0..2) to similarities (1..0)
+                agree = 1.0 - (team_neighbor_opinion_distance / 2.0)          # team vs neighbor
+                align = 1.0 - (organization_neighbor_opinion_distance / 2.0)  # neighbor vs org
+
+                target_neighbor_trust = (w_agree * agree) + ((1.0 - w_agree) * align)
+                new_neighbor_trust = (1.0 - neighbor_trust_learning_rate) * neighbor_trust + \
+                                                    (neighbor_trust_learning_rate * target_neighbor_trust)
+                new_neighbor_trust = float(np.clip(new_neighbor_trust, 0.0, 1.0)) # keep in [0, 1]
+                self.org.set_team_trust(team_1=team_id, team_2=neighbor_id, trust=new_neighbor_trust)
+                
+    def update_agents_trust(self):
+        pass
 
     def agents_communicate_within_teams(self):
         """
@@ -205,4 +242,5 @@ if __name__ == "__main__":
     #print(model.org.get_agent_trust("Agent 4", "Agent 3"))
     #print(model.org.get_agent_trust("Agent 3", "Agent 4"))
     model.update()
-    print(model.org.get_team_opinion("Team A"))
+    print(model.org.get_team_trust_history("Team A", "Team B"))
+    print(model.org.get_agent_trust_history("Agent 2", "Agent 3"))

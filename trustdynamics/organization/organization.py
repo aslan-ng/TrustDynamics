@@ -183,6 +183,7 @@ class Organization(Graphics):
         """
         Set agent latest opinion.
         """
+        opinion = float(opinion)
         agent_id = self.search(agent)
         if agent_id is None:
             raise ValueError("Agent must exist in the organization to set opinion.")
@@ -208,6 +209,7 @@ class Organization(Graphics):
         """
         Set team latest opinion.
         """
+        opinion = float(opinion)
         team_id = self.search(team)
         if team_id is None:
             raise ValueError("Team must exist in the organization to set opinion.")
@@ -232,6 +234,7 @@ class Organization(Graphics):
         """
         Set organization latest opinion.
         """
+        opinion = float(opinion)
         self.opinions.append(opinion)
 
     def get_organization_opinion_history(self) -> list:
@@ -247,16 +250,17 @@ class Organization(Graphics):
         trust_history = self.get_agent_trust_history(agent_1, agent_2)
         return trust_history[-1]
     
-    def set_agent_trust(self, agent_1: int | str, agent_2: int | str, influece: float):
+    def set_agent_trust(self, agent_1: int | str, agent_2: int | str, trust: float):
         """
         Set latest trust value from agent_1 to agent_2.
         """
+        trust = float(trust)
         agent_1_id = self.search(agent_1)
         agent_2_id = self.search(agent_2)
         if agent_1_id is None or agent_2_id is None:
             raise ValueError("Both agents must exist in the organization to get trust value.")
         if self.G_agents.has_edge(agent_1_id, agent_2_id):
-            self.G_agents.edges[agent_1_id, agent_2_id]["trusts"].append(influece)
+            self.G_agents.edges[agent_1_id, agent_2_id]["trusts"].append(trust)
         else:
             raise ValueError("No connection exists between the specified agents.")
         
@@ -284,6 +288,7 @@ class Organization(Graphics):
         """
         Set latest trust from team_1 to team_2.
         """
+        trust = float(trust)
         team_1_id = self.search(team_1)
         team_2_id = self.search(team_2)
         if team_1_id is None or team_2_id is None:
@@ -386,6 +391,20 @@ class Organization(Graphics):
         assert W.index.equals(x.index)
 
         return W, x
+
+    def teams_connected_to(self, team: int | str):
+        """
+        Return all teams that are directly connected to this team.
+        """
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization.")
+
+        connected: set[int] = set()
+        connected.update(self.G_teams.successors(team_id)) # Outgoing neighbors (team_id -> other)
+        #connected.update(self.G_teams.predecessors(team_id)) # Incoming neighbors (other -> team_id)
+        connected.discard(team_id) # Remove self (you always have a self-loop)
+        return connected
 
 
 if __name__ == "__main__":
