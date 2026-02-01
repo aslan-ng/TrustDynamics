@@ -401,9 +401,23 @@ class Organization(Graphics):
             raise ValueError("Team must exist in the organization.")
 
         connected: set[int] = set()
-        connected.update(self.G_teams.successors(team_id)) # Outgoing neighbors (team_id -> other)
-        #connected.update(self.G_teams.predecessors(team_id)) # Incoming neighbors (other -> team_id)
+        connected.update(self.G_teams.successors(team_id)) # Outgoing neighbors (team -> other)
+        #connected.update(self.G_teams.predecessors(team_id)) # Incoming neighbors (other -> team)
         connected.discard(team_id) # Remove self (you always have a self-loop)
+        return connected
+    
+    def agents_connected_to(self, agent: int | str):
+        """
+        Return all agents that are directly connected to this agent.
+        """
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization.")
+
+        connected: set[int] = set()
+        connected.update(self.G_agents.successors(agent_id)) # Outgoing neighbors (agent -> other)
+        #connected.update(self.G_agents.predecessors(agent_id)) # Incoming neighbors (other -> agent)
+        connected.discard(agent_id) # Remove self (you always have a self-loop)
         return connected
 
 
