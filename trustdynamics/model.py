@@ -34,7 +34,6 @@ class Model:
         self.initialize_agents_opinion(average_initial_opinion)
         self.initialize_agents_trust()
         self.initialize_teams_trust()
-        self.initialize_teams_opinion()
 
     def initialize_agents_opinion(self, average_initial_opinion: float):
         """
@@ -86,7 +85,19 @@ class Model:
             trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
             self.org.set_team_trust(u, v, trust)
 
-    def initialize_teams_opinion(self):
+    def update(self):
+        """
+        1. Update the agents opinions based on communication
+        2. Update the agents opinions
+        3. Update the teams opinions based on communication
+        """
+        self.update_teams_opinion()
+        self.update_organization_opinion()
+        #self.update_teams_trust()
+        #self.update_agents_trust()
+        #self.agents_use_technology()
+
+    def update_teams_opinion(self):
         """
         Assign initial team opinions by aggregating member agents' opinions
         via DeGroot dynamics within each team.
@@ -111,27 +122,32 @@ class Model:
                 continue
             
             # Build aligned influence matrix W and opinion vector x0
-            W, x0 = self.org.agent_influence_and_opinions(team_id, history_index=-1)
-            print(x0)
+            W, x0 = self.org.agent_influence_and_opinions(team_id)
+            
             # Run DeGroot to convergence
             dg = Degroot(W)
             res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
             x_final = res["final_opinions"]
+            #print(f"{team_id} initial:\n{x0}")
+            #print(f"{team_id} final:\n{x_final}")
 
             # Aggregate to a single team opinion (robust choice)
             team_opinion = float(x_final.mean())
 
             self.org.set_team_opinion(team_id, team_opinion)
 
-    def update(self):
-        """
-        1. Update the agents opinions based on communication
-        2. Update the agents opinions
-        3. Update the teams opinions based on communication
-        """
-        self.agents_use_technology()
-        self.agents_communicate_within_teams()
-        self.teams_communicate_with_teams()
+    def update_organization_opinion(self):
+        W, x0 = self.org.team_influence_and_opinions()
+        # Run DeGroot to convergence
+        dg = Degroot(W)
+        res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
+        x_final = res["final_opinions"]
+        #print(f"organization initial:\n{x0}")
+        #print(f"organization final:\n{x_final}")
+
+        # Aggregate to a single team opinion (robust choice)
+        organization_opinion = float(x_final.mean())
+        self.org.set_organization_opinion(organization_opinion)
 
     def agents_communicate_within_teams(self):
         """
@@ -189,4 +205,5 @@ if __name__ == "__main__":
 
     #print(model.org.get_agent_trust("Agent 4", "Agent 3"))
     #print(model.org.get_agent_trust("Agent 3", "Agent 4"))
+    model.update()
     print(model.org.get_team_opinion("Team A"))

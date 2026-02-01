@@ -1,4 +1,4 @@
-from .new_id import new_unique_id
+from .new_id import new_unique_id_maxval as new_unique_id
 from .bounded_random_with_exact_mean import bounded_random_with_exact_mean
 from .map_to_range import map_to_range
 from .row_stochasticize import row_stochasticize
