@@ -7,10 +7,23 @@ from trustdynamics.utils import (
 
 
 class Initialization:
+    """
+    Mixin class responsible for initializing model state.
+
+    Initialization establishes:
+    - initial agent opinions
+    - initial trust networks (agents and teams)
+
+    These choices strongly influence early transient dynamics,
+    but do not constrain long-term behavior.
+    """
 
     def initialize(self):
         """
-        Initialize the model
+        Initialize the model once before the first update cycle.
+
+        This method is idempotent by design and guarded by the
+        `self.initialized` flag in the update loop.
         """
         self.initialize_agents_opinion()
         self.initialize_agents_trust()
@@ -19,7 +32,15 @@ class Initialization:
 
     def initialize_agents_opinion(self):
         """
-        Assign initial agents opinions.
+        Assign initial opinions to agents.
+
+        Strategy:
+        - Sample opinions in [-1, 1]
+        - Enforce an *exact* global mean equal to `average_initial_opinion`
+        - Preserve reproducibility by using the model RNG
+
+        This allows controlled experiments on initial ideological bias
+        while maintaining heterogeneity across agents.
         """
         agent_ids = list(self.organization.all_agent_ids)
         n = len(agent_ids)
@@ -37,7 +58,15 @@ class Initialization:
 
     def initialize_agents_trust(self):
         """
-        Assign initial trust values between agents from degree centrality.
+        Assign initial trust values between agents.
+
+        Strategy:
+        - Use in-degree centrality as a proxy for perceived importance
+        - Trust flows *toward* structurally central agents
+        - Map centrality values into (0, 1) to avoid degenerate dynamics
+
+        Interpretation:
+        Agents who are more "listened to" initially receive higher trust.
         """
         trust_min = 0.01
         trust_max = 0.99
@@ -53,7 +82,13 @@ class Initialization:
 
     def initialize_teams_trust(self):
         """
-        Assign initial trust values between teams from degree centrality.
+        Assign initial trust values between teams.
+
+        Mirrors agent-level initialization, but at the team layer.
+
+        Interpretation:
+        Teams that are structurally central in the organization
+        are initially trusted more by other teams.
         """
         trust_min = 0.01
         trust_max = 0.99
