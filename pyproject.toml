@@ -14,15 +14,21 @@ trustdynamics = ["py.typed"]
 [project]
 name = "trustdynamics"
 version = "0.0.1"
-description = "A framework for measuring and predicting trust dynamics in human–AI conversations."
+description = "A Python framework for modeling trust dynamics in human–AI and organizational networks."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
     { name = "Aslan Noorghasemi", email = "aslann@cmu.edu" },
     { name = "Christopher McComb", email = "ccm@cmu.edu" },
 ]
-dependencies = []
-requires-python = ">=3.7"
+dependencies = [
+    "matplotlib",
+    "networkx",
+    "numpy",
+    "pandas",
+    "tqdm",
+]
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
