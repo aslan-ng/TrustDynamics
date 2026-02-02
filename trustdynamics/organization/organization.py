@@ -9,21 +9,67 @@ from trustdynamics.utils import new_unique_id, row_stochasticize
 
 
 class Organization(Serialization, Graphics):
+    """
+    Hierarchical organization model composed of teams and agents.
+
+    This class represents a multi-level social system with:
+    - agents belonging to teams,
+    - directed trust relationships within and between levels,
+    - evolving opinions at agent, team, and organization scales.
+
+    Internally, the organization is represented using two directed graphs:
+    - ``G_agents`` for agent-to-agent trust relationships (intra-team only),
+    - ``G_teams`` for team-to-team trust relationships.
+
+    Each node and edge stores *time series* (histories) of opinions or trust
+    values, enabling dynamic simulations of opinion and trust evolution.
+
+    Inherits
+    --------
+    Serialization
+        Provides versioned save/load support.
+    Graphics
+        Provides visualization utilities for teams and agents.
+    """
 
     SERIALIZATION_VERSION = 1
 
     def __init__(self, name: str = "Organization"):
-        self.name = name
-        self.G_teams = nx.DiGraph()
-        self.G_agents = nx.DiGraph()
-        self.opinions = [] # History of orgnization aggregate opinions
+        """
+        Initialize an empty organization.
+
+        Parameters
+        ----------
+        name : str, optional
+            Human-readable name of the organization.
+        """
+        self.name = name # human-readable name of the organization.
+        self.G_teams = nx.DiGraph() # directional graph to save teams data
+        self.G_agents = nx.DiGraph() # directional graph to save agents data
+        self.opinions = [] # history of orgnization aggregate opinions
 
     @property
     def all_team_ids(self) -> set:
+        """
+        Return all non-empty team names.
+
+        Returns
+        -------
+        set
+            Set of team names.
+        """
         return set(self.G_teams.nodes())
     
     @property
     def all_team_names(self) -> set:
+        """
+        Return all agent node IDs.
+
+        Returns
+        -------
+        set
+            Set of integer agent identifiers.
+        """
         names = set()
         for _, attrs in self.G_teams.nodes(data=True):
             if attrs.get("name") is not None and attrs.get("name") != "":
@@ -32,10 +78,26 @@ class Organization(Serialization, Graphics):
     
     @property
     def all_agent_ids(self) -> set:
+        """
+        Return all agent node IDs.
+
+        Returns
+        -------
+        set
+            Set of integer agent identifiers.
+        """
         return set(self.G_agents.nodes())
 
     @property
     def all_agent_names(self) -> set:
+        """
+        Return all non-empty agent names.
+
+        Returns
+        -------
+        set
+            Set of agent names.
+        """
         names = set()
         for _, attrs in self.G_agents.nodes(data=True):
             if attrs.get("name") is not None and attrs.get("name") != "":
@@ -44,13 +106,47 @@ class Organization(Serialization, Graphics):
 
     @property
     def all_ids(self) -> set:
+        """
+        Return all node IDs (agents and teams).
+
+        Returns
+        -------
+        set
+            Union of agent and team IDs.
+        """
         return self.all_team_ids.union(self.all_agent_ids)
     
     @property
     def all_names(self) -> set:
+        """
+        Return all node names (agents and teams).
+
+        Returns
+        -------
+        set
+            Union of agent and team names.
+        """
         return self.all_team_names.union(self.all_agent_names)
     
     def agents_from_team(self, team: int | str | None) -> set:
+        """
+        Return all agents belonging to a given team.
+
+        Parameters
+        ----------
+        team : int | str | None
+            Team identifier or name.
+
+        Returns
+        -------
+        set
+            Set of agent IDs belonging to the team.
+
+        Raises
+        ------
+        ValueError
+            If the team does not exist.
+        """
         if team is not None:
             team_id = self.search(team)
             if team_id is None:
@@ -64,12 +160,43 @@ class Organization(Serialization, Graphics):
         return agents
     
     def agent_team_id(self, agent: int | str) -> int | None:
+        """
+        Return the team ID an agent belongs to.
+
+        Parameters
+        ----------
+        agent : int | str
+            Agent identifier or name.
+
+        Returns
+        -------
+        int or None
+            Team ID, or None if not assigned.
+
+        Raises
+        ------
+        ValueError
+            If the agent does not exist.
+        """
         agent_id = self.search(agent)
         if agent_id is None:
             raise ValueError("Agent must exist in the organization")
         return self.G_agents.nodes[agent_id].get("team", None)
     
     def _is_name_unique(self, name: str | None) -> bool:
+        """
+        Check whether a node name is unique.
+
+        Parameters
+        ----------
+        name : str or None
+            Proposed name.
+
+        Returns
+        -------
+        bool
+            True if unique or None, False otherwise.
+        """
         names = self.all_names
         if name is None:
             return True
@@ -79,6 +206,19 @@ class Organization(Serialization, Graphics):
         return True
 
     def add_team(self, name: str | None = None):
+        """
+        Add a new team to the organization.
+
+        Parameters
+        ----------
+        name : str, optional
+            Team name (must be unique).
+
+        Raises
+        ------
+        ValueError
+            If the name already exists.
+        """
         if not self._is_name_unique(name):
             raise ValueError(f"Team name must be unique in the organization. '{name}' already exists.")
         team_id = new_unique_id(existing_values=self.all_ids)
@@ -94,6 +234,21 @@ class Organization(Serialization, Graphics):
         )
 
     def add_agent(self, name: str | None = None, team: int | str = None):
+        """
+        Add a new agent to a team.
+
+        Parameters
+        ----------
+        name : str, optional
+            Agent name (must be unique).
+        team : int | str
+            Team identifier or name.
+
+        Raises
+        ------
+        ValueError
+            If the team does not exist or name is not unique.
+        """
         if not self._is_name_unique(name):
             raise ValueError(f"Agent name must be unique in the organization. '{name}' already exists.")
         agent_id = new_unique_id(existing_values=self.all_ids)
@@ -117,6 +272,21 @@ class Organization(Serialization, Graphics):
         )
 
     def add_agent_connection(self, agent_1: int | str, agent_2: int | str):
+        """
+        Create a bidirectional trust connection between two agents.
+
+        Agents must belong to the same team.
+
+        Parameters
+        ----------
+        agent_1, agent_2 : int | str
+            Agent identifiers or names.
+
+        Raises
+        ------
+        ValueError
+            If agents do not exist or are in different teams.
+        """
         agent_1_id = self.search(agent_1)
         agent_2_id = self.search(agent_2)
         agent_1_team_id = self.agent_team_id(agent_1_id)
@@ -138,6 +308,19 @@ class Organization(Serialization, Graphics):
             raise ValueError("Both agents must exist in the organization to add a connection.")
 
     def add_team_connection(self, team_1: int | str, team_2: int | str):
+        """
+        Create a bidirectional trust connection between two teams.
+
+        Parameters
+        ----------
+        team_1, team_2 : int | str
+            Team identifiers or names.
+
+        Raises
+        ------
+        ValueError
+            If either team does not exist.
+        """
         team_1_id = self.search(team_1)
         team_2_id = self.search(team_2)
         if team_1_id is not None and team_2_id is not None:
@@ -155,6 +338,19 @@ class Organization(Serialization, Graphics):
             raise ValueError("Both teams must exist in the organization to add a connection.")
         
     def search(self, input: int | str) -> int | None:
+        """
+        Resolve agent or team node name or ID to its integer ID.
+
+        Parameters
+        ----------
+        input : int | str
+            Node ID or name.
+
+        Returns
+        -------
+        int or None
+            Resolved node ID, or None if not found.
+        """
         if isinstance(input, int):
             return input if input in self.all_ids else None
         elif isinstance(input, str):
@@ -170,6 +366,29 @@ class Organization(Serialization, Graphics):
 
     @property
     def stat(self) -> dict:
+        """
+        Return basic size statistics for the organization graphs.
+
+        Notes
+        -----
+        Connections are counted as *undirected pairs* even though the graphs are directed,
+        assuming that connections are stored bidirectionally (u->v and v->u), and that
+        each node also has a self-loop.
+
+        Returns
+        -------
+        dict
+            Dictionary with keys:
+
+            - ``total_teams`` : int
+                Number of team nodes.
+            - ``total_agents`` : int
+                Number of agent nodes.
+            - ``total_team_connections`` : int
+                Number of non-self team connections (pairwise), excluding self-loops.
+            - ``total_agent_connections`` : int
+                Number of non-self agent connections (pairwise), excluding self-loops.
+        """
         return {
             "total_teams": self.G_teams.number_of_nodes(),
             "total_agents": self.G_agents.number_of_nodes(),
@@ -179,14 +398,45 @@ class Organization(Serialization, Graphics):
     
     def get_agent_opinion(self, agent: int | str, history_index: int = -1) -> float:
         """
-        Get agent opinion.
+        Return an agent's opinion value at a given history index.
+
+        Parameters
+        ----------
+        agent : int | str
+            Agent identifier or name.
+        history_index : int, optional
+            Index into the stored opinion history. Defaults to ``-1`` (latest).
+
+        Returns
+        -------
+        float
+            Opinion value at the requested history index.
+
+        Raises
+        ------
+        ValueError
+            If the agent does not exist.
+        IndexError
+            If the agent has no opinion history or the index is out of range.
         """
         opinions = self.get_agent_opinions_history(agent)
         return opinions[history_index]
     
     def set_agent_opinion(self, agent: int | str, opinion: float):
         """
-        Set agent latest opinion.
+        Append a new opinion value to an agent's opinion history.
+
+        Parameters
+        ----------
+        agent : int | str
+            Agent identifier or name.
+        opinion : float
+            Opinion value to append.
+
+        Raises
+        ------
+        ValueError
+            If the agent does not exist.
         """
         opinion = float(opinion)
         agent_id = self.search(agent)
@@ -196,7 +446,22 @@ class Organization(Serialization, Graphics):
 
     def get_agent_opinions_history(self, agent: int | str) -> list:
         """
-        Get agent opinions history.
+        Return the full opinion history for an agent.
+
+        Parameters
+        ----------
+        agent : int | str
+            Agent identifier or name.
+
+        Returns
+        -------
+        list
+            List of opinion values in chronological order.
+
+        Raises
+        ------
+        ValueError
+            If the agent does not exist.
         """
         agent_id = self.search(agent)
         if agent_id is None:
@@ -205,14 +470,45 @@ class Organization(Serialization, Graphics):
 
     def get_team_opinion(self, team: int | str, history_index: int = -1) -> float:
         """
-        Get team opinion.
+        Return a team's opinion value at a given history index.
+
+        Parameters
+        ----------
+        team : int | str
+            Team identifier or name.
+        history_index : int, optional
+            Index into the stored opinion history. Defaults to ``-1`` (latest).
+
+        Returns
+        -------
+        float
+            Team opinion at the requested history index.
+
+        Raises
+        ------
+        ValueError
+            If the team does not exist.
+        IndexError
+            If the team has no opinion history or the index is out of range.
         """
         opinions = self.get_team_opinions_history(team)
         return opinions[history_index]
     
     def set_team_opinion(self, team: int | str, opinion: float):
         """
-        Set team latest opinion.
+        Append a new opinion value to a team's opinion history.
+
+        Parameters
+        ----------
+        team : int | str
+            Team identifier or name.
+        opinion : float
+            Opinion value to append.
+
+        Raises
+        ------
+        ValueError
+            If the team does not exist.
         """
         opinion = float(opinion)
         team_id = self.search(team)
@@ -222,7 +518,22 @@ class Organization(Serialization, Graphics):
 
     def get_team_opinions_history(self, team: int | str) -> list:
         """
-        Get team opinions history.
+        Return the full opinion history for a team.
+
+        Parameters
+        ----------
+        team : int | str
+            Team identifier or name.
+
+        Returns
+        -------
+        list
+            List of team opinion values in chronological order.
+
+        Raises
+        ------
+        ValueError
+            If the team does not exist.
         """
         team_id = self.search(team)
         if team_id is None:
@@ -231,33 +542,93 @@ class Organization(Serialization, Graphics):
     
     def get_organization_opinion(self, history_index: int = -1) -> float:
         """
-        Get organization opinion.
+        Return the organization-level opinion at a given history index.
+
+        Parameters
+        ----------
+        history_index : int, optional
+            Index into the organization opinion history. Defaults to ``-1`` (latest).
+
+        Returns
+        -------
+        float
+            Organization opinion value.
+
+        Raises
+        ------
+        IndexError
+            If the organization opinion history is empty or index is out of range.
         """
         return self.opinions[history_index]
     
     def set_organization_opinion(self, opinion: float):
         """
-        Set organization latest opinion.
+        Append a new organization-level opinion value.
+
+        Parameters
+        ----------
+        opinion : float
+            Organization opinion value to append.
         """
         opinion = float(opinion)
         self.opinions.append(opinion)
 
     def get_organization_opinion_history(self) -> list:
         """
-        Get organization opinions history.
+        Return the full organization opinion history.
+
+        Returns
+        -------
+        list
+            List of organization opinion values in chronological order.
         """
         return self.opinions
     
     def get_agent_trust(self, agent_1: int | str, agent_2: int | str, history_index: int = -1) -> float:
         """
-        Get trust value from agent_1 to agent_2.
+        Return the trust value from one agent to another at a given history index.
+
+        Parameters
+        ----------
+        agent_1 : int | str
+            Source agent identifier or name (trustor).
+        agent_2 : int | str
+            Target agent identifier or name (trustee).
+        history_index : int, optional
+            Index into the trust history. Defaults to ``-1`` (latest).
+
+        Returns
+        -------
+        float
+            Trust value at the requested history index.
+
+        Raises
+        ------
+        ValueError
+            If either agent does not exist or the edge does not exist.
+        IndexError
+            If the trust history is empty or index is out of range.
         """
         trust_history = self.get_agent_trust_history(agent_1, agent_2)
         return trust_history[history_index]
     
     def set_agent_trust(self, agent_1: int | str, agent_2: int | str, trust: float):
         """
-        Set latest trust value from agent_1 to agent_2.
+        Append a trust value from one agent to another.
+
+        Parameters
+        ----------
+        agent_1 : int | str
+            Source agent identifier or name (trustor).
+        agent_2 : int | str
+            Target agent identifier or name (trustee).
+        trust : float
+            Trust value to append.
+
+        Raises
+        ------
+        ValueError
+            If either agent does not exist or no edge exists between them.
         """
         trust = float(trust)
         agent_1_id = self.search(agent_1)
@@ -271,7 +642,24 @@ class Organization(Serialization, Graphics):
         
     def get_agent_trust_history(self, agent_1: int | str, agent_2: int | str) -> list:
         """
-        Get trust history from agent_1 to agent_2.
+        Return the full trust history from one agent to another.
+
+        Parameters
+        ----------
+        agent_1 : int | str
+            Source agent identifier or name (trustor).
+        agent_2 : int | str
+            Target agent identifier or name (trustee).
+
+        Returns
+        -------
+        list
+            List of trust values in chronological order.
+
+        Raises
+        ------
+        ValueError
+            If either agent does not exist or no edge exists between them.
         """
         agent_1_id = self.search(agent_1)
         agent_2_id = self.search(agent_2)
@@ -284,14 +672,49 @@ class Organization(Serialization, Graphics):
 
     def get_team_trust(self, team_1: int | str, team_2: int | str, history_index: int = -1) -> list:
         """
-        Get trust from team_1 to team_2.
+        Return the trust value from one team to another at a given history index.
+
+        Parameters
+        ----------
+        team_1 : int | str
+            Source team identifier or name (trustor).
+        team_2 : int | str
+            Target team identifier or name (trustee).
+        history_index : int, optional
+            Index into the trust history. Defaults to ``-1`` (latest).
+
+        Returns
+        -------
+        float
+            Trust value at the requested history index.
+
+        Raises
+        ------
+        ValueError
+            If either team does not exist or the edge does not exist.
+        IndexError
+            If the trust history is empty or index is out of range.
         """
         trust_history = self.get_team_trust_history(team_1, team_2)
         return trust_history[history_index]
     
     def set_team_trust(self, team_1: int | str, team_2: int | str, trust: float):
         """
-        Set latest trust from team_1 to team_2.
+        Append a trust value from one team to another.
+
+        Parameters
+        ----------
+        team_1 : int | str
+            Source team identifier or name (trustor).
+        team_2 : int | str
+            Target team identifier or name (trustee).
+        trust : float
+            Trust value to append.
+
+        Raises
+        ------
+        ValueError
+            If either team does not exist or no edge exists between them.
         """
         trust = float(trust)
         team_1_id = self.search(team_1)
@@ -305,7 +728,24 @@ class Organization(Serialization, Graphics):
 
     def get_team_trust_history(self, team_1: int | str, team_2: int | str) -> list:
         """
-        Get trust history from team_1 to team_2.
+        Return the full trust history from one team to another.
+
+        Parameters
+        ----------
+        team_1 : int | str
+            Source team identifier or name (trustor).
+        team_2 : int | str
+            Target team identifier or name (trustee).
+
+        Returns
+        -------
+        list
+            List of trust values in chronological order.
+
+        Raises
+        ------
+        ValueError
+            If either team does not exist or no edge exists between them.
         """
         team_1_id = self.search(team_1)
         team_2_id = self.search(team_2)
@@ -322,40 +762,71 @@ class Organization(Serialization, Graphics):
             *,
             history_index: int = -1,
         ) -> tuple[pd.DataFrame, pd.Series]:
-            """
-            Returns (W, x) aligned on the same agent ordering.
+        """
+        Construct the agent-level influence matrix and opinion vector for a team.
 
-            W[i, j]: influence weight agent i assigns to agent j
-            x[i]: latest opinion of agent i
-            """
-            agent_ids = sorted(self.agents_from_team(team))
+        This returns a row-stochastic matrix ``W`` and an aligned opinion vector ``x``,
+        both indexed by the same ordered set of agent IDs.
 
-            # --- Influence matrix ---
-            W = pd.DataFrame(0.0, index=agent_ids, columns=agent_ids)
+        Definitions
+        ----------
+        - ``W[i, j]`` is the influence weight agent ``i`` assigns to agent ``j``.
+        In this implementation, raw influence weights are taken from trust histories
+        stored on directed edges, then row-normalized via :func:`row_stochasticize`.
+        - ``x[i]`` is agent ``i``'s opinion at ``history_index``.
 
-            for i in agent_ids:
-                for j in agent_ids:
-                    if self.G_agents.has_edge(i, j):
-                        trusts = self.get_agent_trust_history(i, j)
-                        W.loc[i, j] = float(trusts[history_index]) if len(trusts) > 0 else 0.0
+        Parameters
+        ----------
+        team : int | str
+            Team identifier or name.
+        history_index : int, optional
+            Index into trust/opinion histories. Defaults to ``-1`` (latest).
 
-            W = row_stochasticize(W, self_weight_if_isolated=1.0)
+        Returns
+        -------
+        (pandas.DataFrame, pandas.Series)
+            ``W`` (row-stochastic influence matrix) and ``x`` (opinion vector).
 
-            # --- Opinion vector ---
-            x_vals = []
-            for a in agent_ids:
-                hist = self.get_agent_opinions_history(a)
-                if len(hist) == 0:
-                    raise ValueError(f"Agent {a} has no opinion history.")
-                x_vals.append(float(hist[history_index]))
+        Raises
+        ------
+        ValueError
+            If the team does not exist or an agent has no opinion history.
+        IndexError
+            If requested history index is out of bounds for any trust/opinion history.
 
-            x = pd.Series(x_vals, index=agent_ids, name="opinions")
+        Notes
+        -----
+        The returned matrix is guaranteed to be row-stochastic (each row sums to 1),
+        with isolated agents assigned ``self_weight_if_isolated=1.0``.
+        """
+        agent_ids = sorted(self.agents_from_team(team))
 
-            # --- Safety invariants ---
-            assert W.index.equals(W.columns)
-            assert W.index.equals(x.index)
+        # --- Influence matrix ---
+        W = pd.DataFrame(0.0, index=agent_ids, columns=agent_ids)
 
-            return W, x
+        for i in agent_ids:
+            for j in agent_ids:
+                if self.G_agents.has_edge(i, j):
+                    trusts = self.get_agent_trust_history(i, j)
+                    W.loc[i, j] = float(trusts[history_index]) if len(trusts) > 0 else 0.0
+
+        W = row_stochasticize(W, self_weight_if_isolated=1.0)
+
+        # --- Opinion vector ---
+        x_vals = []
+        for a in agent_ids:
+            hist = self.get_agent_opinions_history(a)
+            if len(hist) == 0:
+                raise ValueError(f"Agent {a} has no opinion history.")
+            x_vals.append(float(hist[history_index]))
+
+        x = pd.Series(x_vals, index=agent_ids, name="opinions")
+
+        # --- Safety invariants ---
+        assert W.index.equals(W.columns)
+        assert W.index.equals(x.index)
+
+        return W, x
     
     def team_influence_and_opinions(
         self,
@@ -363,10 +834,39 @@ class Organization(Serialization, Graphics):
         history_index: int = -1,
     ) -> tuple[pd.DataFrame, pd.Series]:
         """
-        Returns (W, x) aligned on the same team ordering.
+        Construct the team-level influence matrix and opinion vector for the organization.
 
-        W[i, j]: influence weight team i assigns to team j
-        x[i]: latest opinion of team i
+        This returns a row-stochastic matrix ``W`` and an aligned opinion vector ``x``,
+        both indexed by the same ordered set of team IDs.
+
+        Definitions
+        ----------
+        - ``W[i, j]`` is the influence weight team ``i`` assigns to team ``j``.
+        Raw influence weights are taken from trust histories stored on directed edges,
+        then row-normalized via :func:`row_stochasticize`.
+        - ``x[i]`` is team ``i``'s opinion at ``history_index``.
+
+        Parameters
+        ----------
+        history_index : int, optional
+            Index into trust/opinion histories. Defaults to ``-1`` (latest).
+
+        Returns
+        -------
+        (pandas.DataFrame, pandas.Series)
+            ``W`` (row-stochastic influence matrix) and ``x`` (opinion vector).
+
+        Raises
+        ------
+        ValueError
+            If any team has no opinion history.
+        IndexError
+            If requested history index is out of bounds for any trust/opinion history.
+
+        Notes
+        -----
+        The returned matrix is guaranteed to be row-stochastic (each row sums to 1),
+        with isolated teams assigned ``self_weight_if_isolated=1.0``.
         """
         team_ids = sorted(list(self.all_team_ids))
 
@@ -399,7 +899,29 @@ class Organization(Serialization, Graphics):
 
     def teams_connected_to(self, team: int | str):
         """
-        Return all teams that are directly connected to this team.
+        Return the set of teams directly connected *outgoing* from a given team.
+
+        This uses ``DiGraph.successors`` which returns teams ``j`` such that an edge
+        ``team -> j`` exists.
+
+        Parameters
+        ----------
+        team : int | str
+            Team identifier or name.
+
+        Returns
+        -------
+        set[int]
+            Set of team IDs that are direct outgoing neighbors.
+
+        Raises
+        ------
+        ValueError
+            If the team does not exist.
+
+        Notes
+        -----
+        The team's self-loop (team -> team) is always removed from the returned set.
         """
         team_id = self.search(team)
         if team_id is None:
@@ -413,7 +935,29 @@ class Organization(Serialization, Graphics):
     
     def agents_connected_to(self, agent: int | str):
         """
-        Return all agents that are directly connected to this agent.
+        Return the set of agents directly connected *outgoing* from a given agent.
+
+        This uses ``DiGraph.successors`` which returns agents ``j`` such that an edge
+        ``agent -> j`` exists.
+
+        Parameters
+        ----------
+        agent : int | str
+            Agent identifier or name.
+
+        Returns
+        -------
+        set[int]
+            Set of agent IDs that are direct outgoing neighbors.
+
+        Raises
+        ------
+        ValueError
+            If the agent does not exist.
+
+        Notes
+        -----
+        The agent's self-loop (agent -> agent) is always removed from the returned set.
         """
         agent_id = self.search(agent)
         if agent_id is None:
@@ -426,6 +970,32 @@ class Organization(Serialization, Graphics):
         return connected
     
     def average_opinions(self, agents: list | set | tuple | None = None, history_index: int = -1):
+        """
+        Compute the mean opinion across a set of agents.
+
+        Parameters
+        ----------
+        agents : list | set | tuple | None, optional
+            Collection of agents (IDs or names). If None, uses all agents.
+        history_index : int, optional
+            Index into opinion histories. Defaults to ``-1`` (latest).
+
+        Returns
+        -------
+        float
+            Mean of the selected agents' opinions.
+
+        Raises
+        ------
+        ValueError
+            If any specified agent does not exist.
+        IndexError
+            If any selected agent lacks opinion history or index is out of range.
+
+        Notes
+        -----
+        Agents are resolved using :meth:`search`.
+        """
         if agents is None:
             agent_ids = self.all_agent_ids
         else:
@@ -439,6 +1009,31 @@ class Organization(Serialization, Graphics):
         return np.array(opinions).mean()
     
     def average_opinions_history(self, agents: list | set | tuple | None = None):
+        """
+        Compute the mean opinion trajectory over time for a set of agents.
+
+        Parameters
+        ----------
+        agents : list | set | tuple | None, optional
+            Collection of agents (IDs or names). If None, uses all agents.
+
+        Returns
+        -------
+        list[float]
+            Time series of average opinion values, one per simulation step.
+
+        Raises
+        ------
+        ValueError
+            If any specified agent does not exist.
+        IndexError
+            If opinion histories are shorter than the organization opinion history.
+
+        Notes
+        -----
+        The number of time steps is determined by ``len(self)``, which is defined as
+        the length of the organization opinion history.
+        """
         result = []
         steps = range(self.__len__())
         for step in steps:
@@ -447,6 +1042,14 @@ class Organization(Serialization, Graphics):
         return result
     
     def __len__(self):
+        """
+        Return the number of recorded organization-level opinion steps.
+
+        Returns
+        -------
+        int
+            Length of the organization opinion history.
+        """
         return len(self.get_organization_opinion_history())
             
 
