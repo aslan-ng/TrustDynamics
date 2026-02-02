@@ -3,7 +3,8 @@ from pathlib import Path
 from trustdynamics import Model, Organization
 
 
-technology_success_rates = [0.6, 0.7, 0.8, 0.9]
+average_initial_opinions = [-1.0, -0.5, 0.0, 0.5, 1.0]
+
 
 if __name__ == "__main__":
     org = Organization()
@@ -21,12 +22,14 @@ if __name__ == "__main__":
     org.add_agent_connection("Agent 2", "Agent 5")
 
     BASE_DIR = Path(__file__).resolve().parent
+    models_dir = BASE_DIR / "models"
 
-    for technology_success_rate in technology_success_rates:
+    for average_initial_opinion in average_initial_opinions:
         model = Model(
             organization=deepcopy(org),
-            technology_success_rate=technology_success_rate,
-            seed=42
+            seed=42,
+            average_initial_opinion=average_initial_opinion,
+            technology_success_rate=0.8
         )
-        model.run(steps=100)
-        model.save(BASE_DIR / "models" / f"model_{technology_success_rate}.json")
+        model.run(steps=200)
+        model.save(models_dir / f"model_{average_initial_opinion}.json")

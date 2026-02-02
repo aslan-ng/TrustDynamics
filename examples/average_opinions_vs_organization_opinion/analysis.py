@@ -1,7 +1,8 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
 from trustdynamics import Model
-from run import technology_success_rates  # wherever this is defined
+
+from run import technology_success_rates
 
 
 BASE_DIR = Path(__file__).resolve().parent

@@ -8,8 +8,8 @@ BASE_DIR = Path(__file__).resolve().parent
 
 plt.figure()
 
-for i, technology_success_rate in enumerate(technology_success_rates):
-    model = Model.load(BASE_DIR / "models" / f"model_{i}.json")
+for technology_success_rate in technology_success_rates:
+    model = Model.load(BASE_DIR / "models" / f"model_{technology_success_rate}.json")
     history = model.organization.get_organization_opinion_history()
     plt.plot(
         history,
