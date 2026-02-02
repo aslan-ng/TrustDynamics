@@ -1,11 +1,18 @@
 import numpy as np
-
 from tqdm import tqdm
 
 from trustdynamics.consensus import Degroot
 
 
 class Update:
+    """
+    Mixin class responsible for advancing the simulation forward in time.
+
+    This class defines:
+    - the main simulation loop (`run`)
+    - a single-step update cycle (`update`)
+    - all opinion and trust update mechanisms at agent, team, and organization levels
+    """
 
     def run(
         self,
@@ -15,23 +22,19 @@ class Update:
         """
         Advance the simulation forward in discrete time steps.
 
-        At each step, the model updates agent opinions, team opinions,
-        trust relationships, and organization-level aggregates according
-        to the current model configuration.
+        At each step, the model updates:
+        - team opinions (from agents),
+        - organization opinion (from teams),
+        - trust relationships (teams and agents),
+        - agent opinions via technology interaction.
 
         Parameters
         ----------
-        steps : int, optional
-            Number of discrete simulation steps to execute. Must be greater
-            than zero.
+        steps : int
+            Number of discrete simulation steps to execute (> 0).
 
-        show_progress : bool, optional
-            If True, display a progress bar during execution.
-
-        Raises
-        ------
-        ValueError
-            If `steps` is less than or equal to zero.
+        show_progress : bool
+            Whether to display a tqdm progress bar.
         """
         if steps <= 0:
             raise ValueError("steps must be > 0")
@@ -45,7 +48,13 @@ class Update:
 
     def update(self):
         """
-        Update model for a single cycle.
+        Execute a single simulation cycle.
+
+        Order matters:
+        1. Teams form opinions from agents
+        2. Organization forms opinion from teams
+        3. Trust updates respond to new opinions
+        4. Agents interact with technology (exogenous shock)
         """
         if self.initialized is False:
             self.initialize()
@@ -58,7 +67,12 @@ class Update:
 
     def update_teams_opinion(self):
         """
-        Calculate team opinion from aggregating agents opinions.
+        Compute each team's opinion by aggregating its agents' opinions.
+
+        Strategy:
+        - If a team has 1 agent → copy that opinion
+        - If multiple agents → run DeGroot consensus to convergence
+        - Aggregate final agent opinions via mean (robust, symmetric)
         """
         # If there are no teams, nothing to do
         if len(self.organization.all_team_ids) == 0:
@@ -87,7 +101,9 @@ class Update:
 
     def update_organization_opinion(self):
         """
-        Calculate organization opinion from aggregating team opinions.
+        Compute organization-level opinion from team opinions.
+
+        Uses the same DeGroot consensus mechanism applied at the team layer.
         """
         # Run DeGroot to convergence
         W, x0 = self.organization.team_influence_and_opinions()
@@ -99,7 +115,14 @@ class Update:
 
     def update_teams_trust(self):
         """
-        Update trust between teams and self-trust (confidence) of each team.
+        Update trust between teams and each team's self-trust (confidence).
+
+        Trust update blends:
+        - Homophily (agreement with others)
+        - Normative alignment (agreement with organization)
+
+        Controlled by:
+        - teams_homophily_normative_tradeoff (w_agree)
         """
         self_trust_learning_rate = self.teams_self_trust_learning_rate
         neighbor_trust_learning_rate = self.teams_neighbor_trust_learning_rate
@@ -138,7 +161,10 @@ class Update:
                 
     def update_agents_trust(self):
         """
-        Update trust between agents and self-trust (confidence) of each agent.
+        Update trust between agents and each agent's self-trust.
+
+        Normative reference for agents is their *team* (not the organization),
+        producing a clear hierarchical trust structure.
         """
         self_trust_learning_rate = self.agents_self_trust_learning_rate
         neighbor_trust_learning_rate = self.agents_neighbor_trust_learning_rate
@@ -180,7 +206,13 @@ class Update:
 
     def agents_use_technology(self):
         """
-        Agents opinions change when they use technology.
+        Exogenous opinion updates due to technology interaction.
+
+        Technology acts as:
+        - probabilistic shock
+        - asymmetric reward / penalty mechanism
+
+        This decouples opinion change from social influence alone.
         """
         agents = self.organization.all_agent_ids
         for agent_id in agents:
