@@ -68,8 +68,8 @@ class Initialization:
         Interpretation:
         Agents who are more "listened to" initially receive higher trust.
         """
-        trust_min = 0.01
-        trust_max = 0.99
+        trust_min = self.agents_initial_trust_min
+        trust_max = self.agents_initial_trust_max
 
         G = self.organization.G_agents
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
@@ -90,8 +90,8 @@ class Initialization:
         Teams that are structurally central in the organization
         are initially trusted more by other teams.
         """
-        trust_min = 0.01
-        trust_max = 0.99
+        trust_min = self.teams_initial_trust_min
+        trust_max = self.teams_initial_trust_max
 
         G = self.organization.G_teams
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:

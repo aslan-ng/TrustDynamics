@@ -30,3 +30,4 @@ plt.tight_layout()
 
 out_path = BASE_DIR / "figure.png"
 plt.savefig(out_path, dpi=300, bbox_inches="tight")
+plt.show()
