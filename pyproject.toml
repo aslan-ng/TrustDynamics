@@ -14,7 +14,7 @@ trustdynamics = ["py.typed"]
 [project]
 name = "trustdynamics"
 version = "0.0.1"
-description = "A Python framework for modeling trust dynamics in human–AI and organizational networks."
+description = "A Python framework for modeling trust dynamics in human–AI and organizational networks"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
