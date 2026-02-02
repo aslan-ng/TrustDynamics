@@ -27,6 +27,6 @@ bibliography: paper.bib
 
 # Summary
 
-Trust is a central determinant of performance, safety, and adoption in human–AI teams and complex organizations. However, existing trust models are often embedded in domain-specific simulations, lack modularity, or are difficult to extend and reproduce. TrustDynamics is an open-source Python framework for modeling, simulating, and analyzing trust dynamics in organizations composed of interacting agents, teams, and technologies.
+Trust is a central determinant of performance, safety, and adoption in human–AI teams and complex organizations. However, existing trust models are often embedded in domain-specific simulations, lack modularity, or are difficult to extend and reproduce. _TrustDynamics_ is an open-source Python framework for modeling, simulating, and analyzing trust dynamics in organizations composed of interacting agents, teams, and technologies.
 
 TrustDynamics provides a flexible graph-based representation of organizations, supports multiple trust and opinion-updating mechanisms (e.g., DeGroot-style averaging), and enables controlled experiments on how trust evolves in response to social influence, organizational structure, and technological performance. The framework emphasizes reproducibility, extensibility, and interpretability, making it suitable for research in sociotechnical systems, organizational behavior, and human–AI collaboration.

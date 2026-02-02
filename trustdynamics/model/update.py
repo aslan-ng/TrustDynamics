@@ -2,7 +2,7 @@ import numpy as np
 
 from tqdm import tqdm
 
-from trustdynamics.trust import Degroot
+from trustdynamics.consensus import Degroot
 
 
 class Update:
