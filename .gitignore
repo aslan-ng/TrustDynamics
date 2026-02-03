@@ -210,6 +210,9 @@ __marimo__/
 .DS_Store
 **/.DS_Store
 
+# VSCode Counter
+.VSCodeCounter/
+
 # Paper / manuscript folder
 paper/
 
