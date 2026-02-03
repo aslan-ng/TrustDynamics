@@ -35,6 +35,7 @@ class Initialization:
         Assign initial opinions to agents.
 
         Strategy:
+        - Keep already agents opinions if they were set initially
         - Sample opinions in [-1, 1]
         - Enforce an *exact* global mean equal to `average_initial_opinion`
         - Preserve reproducibility by using the model RNG

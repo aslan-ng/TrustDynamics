@@ -205,7 +205,10 @@ class Organization(Serialization, Graphics):
                 return False
         return True
 
-    def add_team(self, name: str | None = None):
+    def add_team(
+            self,
+            name: str | None = None,
+        ) -> int:
         """
         Add a new team to the organization.
 
@@ -213,6 +216,11 @@ class Organization(Serialization, Graphics):
         ----------
         name : str, optional
             Team name (must be unique).
+
+        Returns
+        -------
+        int
+            Unique identifier of the newly created team.
 
         Raises
         ------
@@ -232,17 +240,36 @@ class Organization(Serialization, Graphics):
             team_id,
             trusts=[], # History of self-trust values
         )
+        return team_id
 
-    def add_agent(self, name: str | None = None, team: int | str = None):
+    def add_agent(
+            self,
+            name: str | None = None,
+            team: int | str = None,
+            initial_opinion: float = None,
+        ) -> int:
         """
         Add a new agent to a team.
 
         Parameters
         ----------
-        name : str, optional
-            Agent name (must be unique).
-        team : int | str
-            Team identifier or name.
+        name : str or None, optional
+            Human-readable agent name. If provided, it must be unique across
+            all agents and teams in the organization. If ``None``, the agent
+            is added without a name.
+
+        team : int or str
+            Team identifier or team name to which the agent will belong.
+            The specified team **must already exist** in the organization.
+
+        initial_opinion : float or None, optional
+            Initial opinion value for the agent. If ``None``, the opinion will
+            be initialized later by the model's opinion initialization routine.
+
+        Returns
+        -------
+        int
+            Unique identifier of the newly created agent.
 
         Raises
         ------
@@ -259,17 +286,22 @@ class Organization(Serialization, Graphics):
         else:
             team_id = None
             raise ValueError("Team cannot be None.") #####
+        if initial_opinion is not None:
+            opinions = [initial_opinion]
+        else:
+            opinions = []
         self.G_agents.add_node(
             agent_id,
             name=name,
             team=team_id,
-            opinions=[], # History of agent opinions
+            opinions=opinions, # History of agent opinions
         )
         self.G_agents.add_edge(
             agent_id,
             agent_id,
             trusts=[], # History of self-trust values
         )
+        return agent_id
 
     def add_agent_connection(self, agent_1: int | str, agent_2: int | str):
         """
