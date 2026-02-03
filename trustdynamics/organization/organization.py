@@ -912,7 +912,7 @@ class Organization(
 
         return W, x
 
-    def teams_connected_to(self, team: int | str):
+    def teams_connected_to(self, team: int | str) -> set:
         """
         Return the set of teams directly connected *outgoing* from a given team.
 
@@ -947,6 +947,29 @@ class Organization(
         #connected.update(self.G_teams.predecessors(team_id)) # Incoming neighbors (other -> team)
         connected.discard(team_id) # Remove self (you always have a self-loop)
         return connected
+    '''
+    def are_agents_connected(self, agent_1: int | str, agent_2: int | str):
+        """
+        Return True if two agents are directly connected by a trust edge.
+
+        Parameters
+        ----------
+        agent_1, agent_2 : int | str
+            Agent identifiers or names.
+
+        def are_teams_connected(self, agent_1: int | str,  agent_2: int | str):
+            pass
+            
+        Returns
+        -------
+        bool
+            True if a direct edge exists under the chosen criterion, else False.
+        """
+        agent_id_1 = self.search(agent_1)
+        agent_id_2 = self.search(agent_2)
+        return self.G_agents.has_edge(agent_id_1, agent_id_2) or \
+            self.G_agents.has_edge(agent_id_1, agent_id_2)
+    '''
     
     def agents_connected_to(self, agent: int | str):
         """

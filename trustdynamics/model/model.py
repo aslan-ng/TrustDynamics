@@ -212,11 +212,23 @@ if __name__ == "__main__":
     
     from trustdynamics.organization.samples import organization_0 as organization
 
+    organization.add_team(name="Team C")
+    organization.add_team(name="Team D")
+    organization.add_team_connection("Team A", "Team C")
+    organization.add_team_connection("Team B", "Team C")
+    organization.add_team_connection("Team A", "Team D")
+    
     model = Model(
         organization=organization,
         technology_success_rate=0.9,
-        average_initial_opinion=0.0,
+        agents_average_initial_opinion=0.0,
         seed=42
     )
-    model.run(10)
-    print(model.organization.get_organization_opinion_history())
+    model.initialize()
+    print(model.organization.get_team_trust(team_1="Team A", team_2="Team A"))
+    print(model.organization.get_team_trust(team_1="Team B", team_2="Team B"))
+    print(model.organization.get_team_trust(team_1="Team D", team_2="Team D"))
+    
+    organization.show_teams()
+    #model.run(10)
+    #print(model.organization.get_organization_opinion_history())

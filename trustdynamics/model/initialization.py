@@ -1,4 +1,5 @@
 import networkx as nx
+import numpy as np
 
 from trustdynamics.utils import (
     bounded_random_with_exact_mean,
@@ -84,10 +85,31 @@ class Initialization:
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
             return
 
-        dc_in = nx.in_degree_centrality(G)
-        for u, v in G.edges():
-            trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
-            self.organization.set_agent_trust(u, v, trust)
+        agent_ids = sorted(self.organization.all_agent_ids)
+
+        deg_arr = np.array([len(self.organization.agents_connected_to(t)) for t in agent_ids], dtype=float)
+
+        deg_min = float(deg_arr.min()) if deg_arr.size else 0.0
+        deg_max = float(deg_arr.max()) if deg_arr.size else 0.0
+
+        if deg_arr.size == 0 or deg_max == deg_min:
+            c_arr = np.zeros_like(deg_arr)  # all equal centrality
+        else:
+            c_arr = (deg_arr - deg_min) / (deg_max - deg_min)  # in [0,1]
+
+        centrality01 = dict(zip(agent_ids, c_arr))        
+        
+        # Self-trust
+        for agent_id in agent_ids:
+            trust = map_to_range(centrality01[agent_id], trust_min, trust_max)
+            self.organization.set_agent_trust(agent_id, agent_id, trust)
+
+        # Trust in others
+        for agent_id in agent_ids:
+            connected_agents = self.organization.agents_connected_to(agent_id)
+            for other_team_id in connected_agents:
+                trust = map_to_range(centrality01[other_team_id], trust_min, trust_max)
+                self.organization.set_agent_trust(agent_id, other_team_id, trust)
 
     def initialize_teams_trust(self):
         """
@@ -106,7 +128,28 @@ class Initialization:
         if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
             return
 
-        dc_in = nx.in_degree_centrality(G)
-        for u, v in G.edges():
-            trust = map_to_range(dc_in.get(v, 0.0), trust_min, trust_max)
-            self.organization.set_team_trust(u, v, trust)
+        team_ids = sorted(self.organization.all_team_ids)
+
+        deg_arr = np.array([len(self.organization.teams_connected_to(t)) for t in team_ids], dtype=float)
+
+        deg_min = float(deg_arr.min()) if deg_arr.size else 0.0
+        deg_max = float(deg_arr.max()) if deg_arr.size else 0.0
+
+        if deg_arr.size == 0 or deg_max == deg_min:
+            c_arr = np.zeros_like(deg_arr)  # all equal centrality
+        else:
+            c_arr = (deg_arr - deg_min) / (deg_max - deg_min)  # in [0,1]
+
+        centrality01 = dict(zip(team_ids, c_arr))        
+        
+        # Self-trust
+        for team_id in team_ids:
+            trust = map_to_range(centrality01[team_id], trust_min, trust_max)
+            self.organization.set_team_trust(team_id, team_id, trust)
+
+        # Trust in others
+        for team_id in team_ids:
+            connected_teams = self.organization.teams_connected_to(team_id)
+            for other_team_id in connected_teams:
+                trust = map_to_range(centrality01[other_team_id], trust_min, trust_max)
+                self.organization.set_team_trust(team_id, other_team_id, trust)
