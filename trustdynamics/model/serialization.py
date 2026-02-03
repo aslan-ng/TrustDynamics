@@ -97,25 +97,33 @@ class Serialization:
             "state": {
                 "initialized": bool(self.initialized),
                 # Optional, but strongly recommended so the loaded model’s config matches:
-                "average_initial_opinion": float(self.average_initial_opinion),
+                "agents_average_initial_opinion": float(self.agents_average_initial_opinion),
                 # Optional future-proofing (only if you add step later):
                 # "step": int(getattr(self, "step", 0)),
             },
             "config": {
+                # Technology
                 "technology_success_rate": float(self.technology_success_rate),
                 "tech_successful_delta": float(self.tech_successful_delta),
                 "tech_failure_delta": float(self.tech_failure_delta),
 
-                # --- trust initialization bounds ---
+                # Agent initial opinions (NEW in your Model)
+                "agents_average_initial_opinion": float(self.agents_average_initial_opinion),
+                "agents_initial_opinion_min": float(self.agents_initial_opinion_min),
+                "agents_initial_opinion_max": float(self.agents_initial_opinion_max),
+
+                # Trust init bounds
                 "agents_initial_trust_min": float(self.agents_initial_trust_min),
                 "agents_initial_trust_max": float(self.agents_initial_trust_max),
                 "teams_initial_trust_min": float(self.teams_initial_trust_min),
                 "teams_initial_trust_max": float(self.teams_initial_trust_max),
 
-                # --- trust adaptation parameters ---
+                # Agent trust update
                 "agents_self_trust_learning_rate": float(self.agents_self_trust_learning_rate),
                 "agents_neighbor_trust_learning_rate": float(self.agents_neighbor_trust_learning_rate),
                 "agents_homophily_normative_tradeoff": float(self.agents_homophily_normative_tradeoff),
+
+                # Team trust update
                 "teams_self_trust_learning_rate": float(self.teams_self_trust_learning_rate),
                 "teams_neighbor_trust_learning_rate": float(self.teams_neighbor_trust_learning_rate),
                 "teams_homophily_normative_tradeoff": float(self.teams_homophily_normative_tradeoff),
@@ -159,26 +167,34 @@ class Serialization:
 
         model = cls(
             organization=org,
+
+            # Technology
             technology_success_rate=cfg["technology_success_rate"],
             tech_successful_delta=cfg["tech_successful_delta"],
             tech_failure_delta=cfg["tech_failure_delta"],
-            average_initial_opinion=st.get("average_initial_opinion", 0.0),
 
-            # --- trust initialization bounds ---
-            agents_initial_trust_min=cfg.get("agents_initial_trust_min", 0.01),
-            agents_initial_trust_max=cfg.get("agents_initial_trust_max", 0.99),
-            teams_initial_trust_min=cfg.get("teams_initial_trust_min", 0.01),
-            teams_initial_trust_max=cfg.get("teams_initial_trust_max", 0.99),
+            # Agent initial opinions (match your __init__)
+            agents_average_initial_opinion=cfg["agents_average_initial_opinion"],
+            agents_initial_opinion_min=cfg["agents_initial_opinion_min"],
+            agents_initial_opinion_max=cfg["agents_initial_opinion_max"],
 
-            # --- trust adaptation parameters ---
+            # Trust init bounds
+            agents_initial_trust_min=cfg["agents_initial_trust_min"],
+            agents_initial_trust_max=cfg["agents_initial_trust_max"],
+            teams_initial_trust_min=cfg["teams_initial_trust_min"],
+            teams_initial_trust_max=cfg["teams_initial_trust_max"],
+
+            # Agent trust update
             agents_self_trust_learning_rate=cfg["agents_self_trust_learning_rate"],
             agents_neighbor_trust_learning_rate=cfg["agents_neighbor_trust_learning_rate"],
             agents_homophily_normative_tradeoff=cfg["agents_homophily_normative_tradeoff"],
+
+            # Team trust update
             teams_self_trust_learning_rate=cfg["teams_self_trust_learning_rate"],
             teams_neighbor_trust_learning_rate=cfg["teams_neighbor_trust_learning_rate"],
             teams_homophily_normative_tradeoff=cfg["teams_homophily_normative_tradeoff"],
 
-            seed=None,
+            seed=None, # because we will restore RNG state
         )
 
         # Restore state

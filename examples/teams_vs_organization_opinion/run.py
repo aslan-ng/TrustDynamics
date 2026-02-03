@@ -19,7 +19,7 @@ org.add_agent_connection("Agent 2", "Agent 5")
 model = Model(
     organization=org,
     seed=42,
-    average_initial_opinion=0.2,
+    agents_average_initial_opinion=0.2,
     technology_success_rate=0.8
 )
 model.run(steps=100)

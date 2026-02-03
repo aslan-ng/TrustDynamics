@@ -420,7 +420,12 @@ class Organization(Serialization, Graphics):
             If the agent has no opinion history or the index is out of range.
         """
         opinions = self.get_agent_opinions_history(agent)
-        return opinions[history_index]
+        if not opinions:  # empty list
+            return None
+        try:
+            return opinions[history_index]
+        except IndexError:
+            return None
     
     def set_agent_opinion(self, agent: int | str, opinion: float):
         """
@@ -492,7 +497,12 @@ class Organization(Serialization, Graphics):
             If the team has no opinion history or the index is out of range.
         """
         opinions = self.get_team_opinions_history(team)
-        return opinions[history_index]
+        if not opinions:  # empty list
+            return None
+        try:
+            return opinions[history_index]
+        except IndexError:
+            return None
     
     def set_team_opinion(self, team: int | str, opinion: float):
         """

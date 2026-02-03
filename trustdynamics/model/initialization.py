@@ -46,12 +46,20 @@ class Initialization:
         n = len(agent_ids)
         if n == 0:
             return
+        
+        existing_opinions = []
+        for agent_id in agent_ids:
+            existing_opinion = self.organization.get_agent_opinion(agent_id)
+            if existing_opinion is not None:
+                existing_opinions.append(existing_opinion)
+
         opinions = bounded_random_with_exact_mean(
-            n=n,
-            target_mean=self.average_initial_opinion,
+            n_total=n,
+            target_mean=self.agents_average_initial_opinion,
+            fixed_values=existing_opinions,
             seed=self.rng, # pass the Generator to keep reproducibility tied to Model
-            min_value=-1.0,
-            max_value=1.0,
+            min_value=self.agents_initial_opinion_min,
+            max_value=self.agents_initial_opinion_max,
         )
         for agent_id, opinion in zip(agent_ids, opinions):
             self.organization.set_agent_opinion(agent_id, float(opinion))

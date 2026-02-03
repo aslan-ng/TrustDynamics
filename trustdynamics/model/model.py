@@ -31,7 +31,9 @@ class Model(Initialization, Update, Serialization):
         technology_success_rate: float = 1.0,
         tech_successful_delta: float = 0.05,
         tech_failure_delta: float = -0.15,
-        average_initial_opinion: float = 0.0,
+        agents_average_initial_opinion: float = 0.0,
+        agents_initial_opinion_min: float = -1.0,
+        agents_initial_opinion_max: float = 1.0,
         agents_initial_trust_min: float = 0.01,
         agents_initial_trust_max: float = 0.99,
         teams_initial_trust_min: float = 0.01,
@@ -123,50 +125,64 @@ class Model(Initialization, Update, Serialization):
         self.organization = organization
         self.initialized: bool = False
 
+        # Technology
         if technology_success_rate < 0.0 or technology_success_rate > 1.0:
             raise ValueError("technology_success_rate must be between 0.0 and 1.0")
         self.technology_success_rate = technology_success_rate
-
         if tech_successful_delta < 0.0 or tech_successful_delta > 1.0:
             raise ValueError("tech_successful_delta must be between 0.0 and 1.0")
         self.tech_successful_delta = tech_successful_delta
-
         if tech_failure_delta > 0.0 or tech_failure_delta < -1.0:  
             raise ValueError("tech_failure_delta must be between -1.0 and 0.0")
         self.tech_failure_delta = tech_failure_delta
 
-        if average_initial_opinion < -1.0 or average_initial_opinion > 1.0:
-            raise ValueError("average_initial_opinion must be between -1.0 and 1.0")
-        self.average_initial_opinion = average_initial_opinion
+        # Agents initial opinion
+        if agents_average_initial_opinion < -1.0 or agents_average_initial_opinion > 1.0:
+            raise ValueError("agents_average_initial_opinion must be between -1.0 and 1.0")
+        self.agents_average_initial_opinion = agents_average_initial_opinion
+        if agents_initial_opinion_min < -1.0 or agents_initial_opinion_min > 1.0:
+            raise ValueError("agents_initial_opinion_min must be between -1.0 and 1.0")
+        if agents_initial_opinion_max < -1.0 or agents_initial_opinion_max > 1.0:
+            raise ValueError("agents_initial_opinion_max must be between -1.0 and 1.0")
+        if agents_initial_opinion_max < agents_initial_opinion_min:
+            raise ValueError("agents_initial_opinion_max must not be smaller than agents_initial_opinion_min.")
+        self.agents_initial_opinion_min = agents_initial_opinion_min
+        self.agents_initial_opinion_max = agents_initial_opinion_max
 
+        # Agents initial trust
         if agents_initial_trust_min < 0.0 or agents_initial_trust_min > 1.0:
             raise ValueError("agents_initial_trust_min must be between 0.0 and 1.0")
-        self.agents_initial_trust_min = agents_initial_trust_min
-
         if agents_initial_trust_max < 0.0 or agents_initial_trust_max > 1.0:
             raise ValueError("agents_initial_trust_max must be between 0.0 and 1.0")
+        if agents_initial_trust_max < agents_initial_trust_min:
+            raise ValueError("agents_initial_trust_max must not be smaller than agents_initial_trust_min.")
+        self.agents_initial_trust_min = agents_initial_trust_min
         self.agents_initial_trust_max = agents_initial_trust_max
 
+        # Teams initial trust
         if teams_initial_trust_min < 0.0 or teams_initial_trust_min > 1.0:
             raise ValueError("teams_initial_trust_min must be between 0.0 and 1.0")
-        self.teams_initial_trust_min = teams_initial_trust_min
-
         if teams_initial_trust_max < 0.0 or teams_initial_trust_max > 1.0:
             raise ValueError("teams_initial_trust_max must be between 0.0 and 1.0")
+        if teams_initial_trust_max < teams_initial_trust_min:
+            raise ValueError("teams_initial_trust_max must not be smaller than teams_initial_trust_min.")
+        self.teams_initial_trust_min = teams_initial_trust_min
         self.teams_initial_trust_max = teams_initial_trust_max
         
+        # Agent trust update
         if agents_self_trust_learning_rate < 0.0 or agents_self_trust_learning_rate > 1.0:
             raise ValueError("agents_self_trust_learning_rate must be between 0.0 and 1.0")
         self.agents_self_trust_learning_rate = agents_self_trust_learning_rate
-
+        
         if agents_neighbor_trust_learning_rate < 0.0 or agents_neighbor_trust_learning_rate > 1.0:
             raise ValueError("agents_neighbor_trust_learning_rate must be between 0.0 and 1.0")
         self.agents_neighbor_trust_learning_rate = agents_neighbor_trust_learning_rate
-
+        
         if agents_homophily_normative_tradeoff < 0.0 or agents_homophily_normative_tradeoff > 1.0:
             raise ValueError("agents_homophily_normative_tradeoff must be between 0.0 and 1.0")
         self.agents_homophily_normative_tradeoff = agents_homophily_normative_tradeoff
 
+        # Team trust update
         if teams_self_trust_learning_rate < 0.0 or teams_self_trust_learning_rate > 1.0:
             raise ValueError("teams_self_trust_learning_rate must be between 0.0 and 1.0")
         self.teams_self_trust_learning_rate = teams_self_trust_learning_rate

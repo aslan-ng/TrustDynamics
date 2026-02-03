@@ -3,7 +3,7 @@ from pathlib import Path
 from trustdynamics import Model, Organization
 
 
-average_initial_opinions = [-1.0, -0.5, 0.0, 0.5, 1.0]
+agents_average_initial_opinions = [-1.0, -0.5, 0.0, 0.5, 1.0]
 
 
 if __name__ == "__main__":
@@ -24,12 +24,12 @@ if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
     models_dir = BASE_DIR / "models"
 
-    for average_initial_opinion in average_initial_opinions:
+    for agents_average_initial_opinion in agents_average_initial_opinions:
         model = Model(
             organization=deepcopy(org),
             seed=42,
-            average_initial_opinion=average_initial_opinion,
+            agents_average_initial_opinion=agents_average_initial_opinion,
             technology_success_rate=0.8
         )
         model.run(steps=200)
-        model.save(models_dir / f"model_{average_initial_opinion}.json")
+        model.save(models_dir / f"model_{agents_average_initial_opinion}.json")

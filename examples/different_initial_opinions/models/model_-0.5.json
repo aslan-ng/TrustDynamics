@@ -5,12 +5,15 @@
   },
   "state": {
     "initialized": true,
-    "average_initial_opinion": -0.5
+    "agents_average_initial_opinion": -0.5
   },
   "config": {
     "technology_success_rate": 0.8,
     "tech_successful_delta": 0.05,
     "tech_failure_delta": -0.15,
+    "agents_average_initial_opinion": -0.5,
+    "agents_initial_opinion_min": -1.0,
+    "agents_initial_opinion_max": 1.0,
     "agents_initial_trust_min": 0.01,
     "agents_initial_trust_max": 0.99,
     "teams_initial_trust_min": 0.01,
