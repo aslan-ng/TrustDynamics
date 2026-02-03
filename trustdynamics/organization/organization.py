@@ -4,6 +4,7 @@ import pandas as pd
 
 
 from trustdynamics.organization.add import Add
+from trustdynamics.organization.initialization import Initialization
 from trustdynamics.organization.serialization import Serialization
 from trustdynamics.organization.graphics import Graphics
 from trustdynamics.organization.stat import Stat
@@ -12,6 +13,7 @@ from trustdynamics.utils import row_stochasticize
 
 class Organization(
     Add,
+    Initialization,
     Serialization,
     Graphics,
     Stat
@@ -39,7 +41,11 @@ class Organization(
         Provides visualization utilities for teams and agents.
     """
 
-    def __init__(self, name: str = "Organization"):
+    def __init__(
+        self,
+        name: str = "Organization",
+        seed: int | None | np.random.Generator = None,
+    ):
         """
         Initialize an empty organization.
 
@@ -49,9 +55,17 @@ class Organization(
             Human-readable name of the organization.
         """
         self.name = name # human-readable name of the organization.
+
         self.G_teams = nx.DiGraph() # directional graph to save teams data
         self.G_agents = nx.DiGraph() # directional graph to save agents data
         self.opinions = [] # history of orgnization aggregate opinions
+
+        if isinstance(seed, int) or seed is None:
+            self.rng = np.random.default_rng(seed)
+        elif isinstance(seed, np.random.Generator):
+            self.rng = seed
+        
+        self.initialized: bool = False
 
     @property
     def all_team_ids(self) -> set:
@@ -236,6 +250,114 @@ class Organization(
             return None
         else:
             return None
+        
+    # =========================
+    # Agent-level parameters
+    # =========================
+
+    def get_agent_technology_success_impact(self, agent: int | str) -> float:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to get technology_success_impact.")
+        return self.G_agents.nodes[agent_id].get("technology_success_impact", 0.0)
+
+    def set_agent_technology_success_impact(self, agent: int | str, value: float) -> None:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to set technology_success_impact.")
+        self.G_agents.nodes[agent_id]["technology_success_impact"] = float(value)
+
+    def get_agent_technology_failure_impact(self, agent: int | str) -> float:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to get technology_failure_impact.")
+        return self.G_agents.nodes[agent_id].get("technology_failure_impact", 0.0)
+
+    def set_agent_technology_failure_impact(self, agent: int | str, value: float) -> None:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to set technology_failure_impact.")
+        self.G_agents.nodes[agent_id]["technology_failure_impact"] = float(value)
+
+    def get_agent_self_trust_learning_rate(self, agent: int | str) -> float:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to get self_trust_learning_rate.")
+        return self.G_agents.nodes[agent_id].get("self_trust_learning_rate", 0.0)
+
+    def set_agent_self_trust_learning_rate(self, agent: int | str, value: float) -> None:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to set self_trust_learning_rate.")
+        self.G_agents.nodes[agent_id]["self_trust_learning_rate"] = float(value)
+
+
+    def get_agent_trust_learning_rate(self, agent: int | str) -> float:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to get trust_learning_rate.")
+        return self.G_agents.nodes[agent_id].get("trust_learning_rate", 0.0)
+
+
+    def set_agent_trust_learning_rate(self, agent: int | str, value: float) -> None:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to set trust_learning_rate.")
+        self.G_agents.nodes[agent_id]["trust_learning_rate"] = float(value)
+
+
+    def get_agent_homophily_normative_tradeoff(self, agent: int | str) -> float:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to get homophily_normative_tradeoff.")
+        return self.G_agents.nodes[agent_id].get("homophily_normative_tradeoff", 0.5)
+
+
+    def set_agent_homophily_normative_tradeoff(self, agent: int | str, value: float) -> None:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to set homophily_normative_tradeoff.")
+        self.G_agents.nodes[agent_id]["homophily_normative_tradeoff"] = float(value)
+        
+    # =========================
+    # Team-level parameters
+    # =========================
+
+    def get_team_self_trust_learning_rate(self, team: int | str) -> float:
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization to get self_trust_learning_rate.")
+        return self.G_teams.nodes[team_id].get("self_trust_learning_rate", 0.0)
+
+    def set_team_self_trust_learning_rate(self, team: int | str, value: float) -> None:
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization to set self_trust_learning_rate.")
+        self.G_teams.nodes[team_id]["self_trust_learning_rate"] = float(value)
+
+    def get_team_trust_learning_rate(self, team: int | str) -> float:
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization to get trust_learning_rate.")
+        return self.G_teams.nodes[team_id].get("trust_learning_rate", 0.0)
+
+    def set_team_trust_learning_rate(self, team: int | str, value: float) -> None:
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization to set trust_learning_rate.")
+        self.G_teams.nodes[team_id]["trust_learning_rate"] = float(value)
+
+    def get_team_homophily_normative_tradeoff(self, team: int | str) -> float:
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization to get homophily_normative_tradeoff.")
+        return self.G_teams.nodes[team_id].get("homophily_normative_tradeoff", 0.5)
+
+    def set_team_homophily_normative_tradeoff(self, team: int | str, value: float) -> None:
+        team_id = self.search(team)
+        if team_id is None:
+            raise ValueError("Team must exist in the organization to set homophily_normative_tradeoff.")
+        self.G_teams.nodes[team_id]["homophily_normative_tradeoff"] = float(value)
     
     def get_agent_opinion(self, agent: int | str, history_index: int = -1) -> float:
         """
@@ -266,7 +388,7 @@ class Organization(
         try:
             return opinions[history_index]
         except IndexError:
-            return None
+            return None  
     
     def set_agent_opinion(self, agent: int | str, opinion: float):
         """
@@ -805,29 +927,6 @@ class Organization(
         #connected.update(self.G_teams.predecessors(team_id)) # Incoming neighbors (other -> team)
         connected.discard(team_id) # Remove self (you always have a self-loop)
         return connected
-    '''
-    def are_agents_connected(self, agent_1: int | str, agent_2: int | str):
-        """
-        Return True if two agents are directly connected by a trust edge.
-
-        Parameters
-        ----------
-        agent_1, agent_2 : int | str
-            Agent identifiers or names.
-
-        def are_teams_connected(self, agent_1: int | str,  agent_2: int | str):
-            pass
-            
-        Returns
-        -------
-        bool
-            True if a direct edge exists under the chosen criterion, else False.
-        """
-        agent_id_1 = self.search(agent_1)
-        agent_id_2 = self.search(agent_2)
-        return self.G_agents.has_edge(agent_id_1, agent_id_2) or \
-            self.G_agents.has_edge(agent_id_1, agent_id_2)
-    '''
     
     def agents_connected_to(self, agent: int | str):
         """

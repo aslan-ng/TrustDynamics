@@ -7,6 +7,9 @@ class Add:
             self,
             name: str | None = None,
             initial_self_trust: float | None = None,
+            self_trust_learning_rate: float = 0.1,
+            trust_learning_rate: float = 0.1,
+            homophily_normative_tradeoff: float = 0.5,
         ) -> int:
         """
         Add a new team to the organization.
@@ -27,6 +30,16 @@ class Add:
             ``trusts=[initial_self_trust]``; otherwise it is initialized with an
             empty list ``trusts=[]`` and will be populated during model initialization
             or simulation updates.
+        self_trust_learning_rate : float, optional
+            Learning rate for updating team self-trust (confidence) based on alignment
+            with organization opinion. Must lie in [0, 1].
+        trust_learning_rate : float, optional
+            Learning rate for updating trust from a team to neighboring teams.
+            Must lie in [0, 1].
+        homophily_normative_tradeoff : float, optional
+            Convex mixing weight in [0, 1] for team-level neighbor trust updates:
+            - 1.0 → purely homophily-driven (team↔neighbor team agreement)
+            - 0.0 → purely normative (neighbor team↔organization alignment)
 
         Returns
         -------
@@ -47,12 +60,24 @@ class Add:
         if not self._is_name_unique(name):
             raise ValueError(f"Team name must be unique in the organization. '{name}' already exists.")
         
+        if self_trust_learning_rate < 0.0 or self_trust_learning_rate > 1.0:
+            raise ValueError("self_trust_learning_rate must be between 0.0 and 1.0")
+
+        if trust_learning_rate < 0.0 or trust_learning_rate > 1.0:
+            raise ValueError("trust_learning_rate must be between 0.0 and 1.0")
+
+        if homophily_normative_tradeoff < 0.0 or homophily_normative_tradeoff > 1.0:
+            raise ValueError("homophily_normative_tradeoff must be between 0.0 and 1.0")
+
         team_id = new_unique_id(existing_values=self.all_ids)
         
         self.G_teams.add_node(
             team_id,
             name=name,
             opinions=[], # History of team opinions
+            self_trust_learning_rate=self_trust_learning_rate,
+            trust_learning_rate=trust_learning_rate,
+            homophily_normative_tradeoff=homophily_normative_tradeoff,
         )
 
         if initial_self_trust is not None:
@@ -75,6 +100,11 @@ class Add:
             initial_opinion: float = None,
             initial_self_trust: float | None = None,
             exposure_to_technology: bool = True,
+            technology_success_impact: float = 0.05,
+            technology_failure_impact: float = -0.15,
+            self_trust_learning_rate: float = 0.1,
+            trust_learning_rate: float = 0.1,
+            homophily_normative_tradeoff: float = 0.5,
         ) -> int:
         """
         Add a new agent to an existing team.
@@ -105,6 +135,22 @@ class Add:
             empty list ``trusts=[]``.
         exposure_to_technology : bool, optional
             If the agent uses the new technology, is will be True, or else, it is False.
+        technology_success_impact : float, optional
+            Opinion increment applied to an agent upon successful technology use.
+            Expected nonnegative; opinions are clipped to +1.
+        technology_failure_impact : float, optional
+            Opinion increment (typically negative) applied upon technology failure.
+            Expected nonpositive; opinions are clipped to -1.
+        self_trust_learning_rate : float, optional
+            Learning rate for updating agent self-trust (confidence) based on alignment
+            with the agent's team opinion. Must lie in [0, 1].
+        trust_learning_rate : float, optional
+            Learning rate for updating trust from an agent to its neighbors.
+            Must lie in [0, 1].
+        homophily_normative_tradeoff : float, optional
+            Convex mixing weight in [0, 1] for agent-level neighbor trust updates:
+            - 1.0 → purely homophily-driven (agent↔neighbor agreement)
+            - 0.0 → purely normative (neighbor↔team alignment)
 
         Returns
         -------
@@ -124,6 +170,21 @@ class Add:
           ``initial_self_trust``. If your model expects bounded opinions (e.g., [-1, 1])
           and bounded trust (e.g., [0, 1]), consider validating here.
         """
+        if technology_success_impact < 0.0 or technology_success_impact > 1.0:
+            raise ValueError("technology_success_impact must be between 0.0 and 1.0")
+
+        if technology_failure_impact > 0.0 or technology_failure_impact < -1.0:  
+            raise ValueError("technology_failure_impact must be between -1.0 and 0.0")
+
+        if self_trust_learning_rate < 0.0 or self_trust_learning_rate > 1.0:
+            raise ValueError("self_trust_learning_rate must be between 0.0 and 1.0")
+        
+        if trust_learning_rate < 0.0 or trust_learning_rate > 1.0:
+            raise ValueError("trust_learning_rate must be between 0.0 and 1.0")
+        
+        if homophily_normative_tradeoff < 0.0 or homophily_normative_tradeoff > 1.0:
+            raise ValueError("homophily_normative_tradeoff must be between 0.0 and 1.0")
+
         if not self._is_name_unique(name):
             raise ValueError(f"Agent name must be unique in the organization. '{name}' already exists.")
         
@@ -148,6 +209,11 @@ class Add:
             team=team_id,
             opinions=opinions, # History of agent opinions
             exposure_to_technology=exposure_to_technology,
+            technology_success_impact=technology_success_impact,
+            technology_failure_impact=technology_failure_impact,
+            self_trust_learning_rate=self_trust_learning_rate,
+            trust_learning_rate=trust_learning_rate,
+            homophily_normative_tradeoff=homophily_normative_tradeoff,
         )
 
         if initial_self_trust is not None:

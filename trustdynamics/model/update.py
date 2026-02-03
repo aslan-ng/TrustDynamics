@@ -56,8 +56,8 @@ class Update:
         3. Trust updates respond to new opinions
         4. Agents interact with technology (exogenous shock)
         """
-        if self.initialized is False:
-            self.initialize()
+        if self.organization.initialized is False:
+            self.organization.initialize()
 
         self.update_teams_opinion()
         self.update_organization_opinion()
@@ -124,12 +124,12 @@ class Update:
         Controlled by:
         - teams_homophily_normative_tradeoff (w_agree)
         """
-        self_trust_learning_rate = self.teams_self_trust_learning_rate
-        neighbor_trust_learning_rate = self.teams_neighbor_trust_learning_rate
-        w_agree = self.teams_homophily_normative_tradeoff  # 0..1, higher => more homophily, lower => more normative
-        
         organization_opinion = self.organization.get_organization_opinion()
         for team_id in self.organization.all_team_ids:
+            self_trust_learning_rate = self.organization.get_team_self_trust_learning_rate(team_id)
+            trust_learning_rate = self.organization.get_team_trust_learning_rate(team_id)
+            w_agree = self.organization.get_team_homophily_normative_tradeoff(team_id)  # 0..1, higher => more homophily, lower => more normative
+
             team_opinion = self.organization.get_team_opinion(team_id)
             team_self_trust = self.organization.get_team_trust(team_1=team_id, team_2=team_id) # confidence
             team_organization_opinion_distance = abs(team_opinion - organization_opinion) # how “deviant” team is from org
@@ -154,8 +154,8 @@ class Update:
                 align = 1.0 - (organization_neighbor_opinion_distance / 2.0)  # neighbor vs org
 
                 target_neighbor_trust = (w_agree * agree) + ((1.0 - w_agree) * align)
-                new_neighbor_trust = (1.0 - neighbor_trust_learning_rate) * neighbor_trust + \
-                                                    (neighbor_trust_learning_rate * target_neighbor_trust)
+                new_neighbor_trust = (1.0 - trust_learning_rate) * neighbor_trust + \
+                                                    (trust_learning_rate * target_neighbor_trust)
                 new_neighbor_trust = float(np.clip(new_neighbor_trust, 0.0, 1.0)) # keep in [0, 1]
                 self.organization.set_team_trust(team_1=team_id, team_2=neighbor_id, trust=new_neighbor_trust)
                 
@@ -166,14 +166,14 @@ class Update:
         Normative reference for agents is their *team* (not the organization),
         producing a clear hierarchical trust structure.
         """
-        self_trust_learning_rate = self.agents_self_trust_learning_rate
-        neighbor_trust_learning_rate = self.agents_neighbor_trust_learning_rate
-        w_agree = self.agents_homophily_normative_tradeoff  # 0..1, higher => more homophily, lower => more normative
-
         for team_id in self.organization.all_team_ids:
             team_opinion = self.organization.get_team_opinion(team_id)
             agent_ids = self.organization.agents_from_team(team_id)
             for agent_id in agent_ids:
+                self_trust_learning_rate = self.organization.get_agent_self_trust_learning_rate(agent_id)
+                trust_learning_rate = self.organization.get_agent_trust_learning_rate(agent_id)
+                w_agree = self.organization.get_agent_homophily_normative_tradeoff(agent_id)  # 0..1, higher => more homophily, lower => more normative
+
                 agent_opinion = self.organization.get_agent_opinion(agent_id)
                 agent_self_trust = self.organization.get_agent_trust(agent_1=agent_id, agent_2=agent_id)
 
@@ -199,8 +199,8 @@ class Update:
 
                     target_neighbor_trust = (w_agree * agree) + ((1.0 - w_agree) * align)
 
-                    new_neighbor_trust = (1.0 - neighbor_trust_learning_rate) * neighbor_trust + \
-                                        (neighbor_trust_learning_rate * target_neighbor_trust)
+                    new_neighbor_trust = (1.0 - trust_learning_rate) * neighbor_trust + \
+                                        (trust_learning_rate * target_neighbor_trust)
                     new_neighbor_trust = float(np.clip(new_neighbor_trust, 0.0, 1.0))
                     self.organization.set_agent_trust(agent_1=agent_id, agent_2=neighbor_id, trust=new_neighbor_trust)
 
@@ -218,9 +218,11 @@ class Update:
         for agent_id in agents:
             if self.organization.get_agent_exposure_to_technology(agent_id) is True:
                 current_opinion = self.organization.get_agent_opinion(agent_id)
-                tech_successful: bool = self.rng.random() < self.technology_success_rate
+                tech_successful = self.technology.use(agent_id)
                 if tech_successful:
-                    new_opinion = min(current_opinion + self.tech_successful_delta, 1.0)
+                    delta = self.organization.get_agent_technology_success_impact(agent_id)
+                    new_opinion = min(current_opinion + delta, 1.0)
                 else:
-                    new_opinion = max(current_opinion + self.tech_failure_delta, -1.0)
+                    delta = self.organization.get_agent_technology_failure_impact(agent_id)
+                    new_opinion = max(current_opinion + delta, -1.0)
                 self.organization.set_agent_opinion(agent_id, new_opinion)
