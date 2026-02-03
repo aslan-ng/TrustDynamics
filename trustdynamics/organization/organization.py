@@ -3,12 +3,17 @@ import networkx as nx
 import pandas as pd
 
 
-from trustdynamics.organization.graphics import Graphics
 from trustdynamics.organization.serialization import Serialization
+from trustdynamics.organization.graphics import Graphics
+from trustdynamics.organization.stat import Stat
 from trustdynamics.utils import new_unique_id, row_stochasticize
 
 
-class Organization(Serialization, Graphics):
+class Organization(
+    Serialization,
+    Graphics,
+    Stat
+):
     """
     Hierarchical organization model composed of teams and agents.
 
@@ -395,38 +400,6 @@ class Organization(Serialization, Graphics):
             return None
         else:
             return None
-
-    @property
-    def stat(self) -> dict:
-        """
-        Return basic size statistics for the organization graphs.
-
-        Notes
-        -----
-        Connections are counted as *undirected pairs* even though the graphs are directed,
-        assuming that connections are stored bidirectionally (u->v and v->u), and that
-        each node also has a self-loop.
-
-        Returns
-        -------
-        dict
-            Dictionary with keys:
-
-            - ``total_teams`` : int
-                Number of team nodes.
-            - ``total_agents`` : int
-                Number of agent nodes.
-            - ``total_team_connections`` : int
-                Number of non-self team connections (pairwise), excluding self-loops.
-            - ``total_agent_connections`` : int
-                Number of non-self agent connections (pairwise), excluding self-loops.
-        """
-        return {
-            "total_teams": self.G_teams.number_of_nodes(),
-            "total_agents": self.G_agents.number_of_nodes(),
-            "total_team_connections": int((self.G_teams.number_of_edges() - self.G_teams.number_of_nodes()) / 2), # exclude self-loop
-            "total_agent_connections": int((self.G_agents.number_of_edges() - self.G_agents.number_of_nodes()) / 2), # exclude self-loop
-        }
     
     def get_agent_opinion(self, agent: int | str, history_index: int = -1) -> float:
         """

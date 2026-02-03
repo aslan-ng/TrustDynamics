@@ -17,6 +17,10 @@ def bounded_random_with_exact_mean(
     """
     fixed = np.asarray(list(fixed_values), dtype=float)
     k = fixed.size
+    n_free = n_total - k
+
+    if n_free == 0:
+        return fixed
 
     if n_total < k:
         raise ValueError(
@@ -38,7 +42,7 @@ def bounded_random_with_exact_mean(
         rng = seed
     else:
         rng = np.random.default_rng(seed)
-    n_free = n_total - k
+    
     target_sum_total = n_total * target_mean
     fixed_sum = float(fixed.sum())
 
