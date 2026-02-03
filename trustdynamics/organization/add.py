@@ -74,6 +74,7 @@ class Add:
             team: int | str = None,
             initial_opinion: float = None,
             initial_self_trust: float | None = None,
+            exposure_to_technology: bool = True,
         ) -> int:
         """
         Add a new agent to an existing team.
@@ -102,6 +103,8 @@ class Add:
             self-loop edge ``(agent_id, agent_id)`` is initialized with
             ``trusts=[initial_self_trust]``; otherwise it is initialized with an
             empty list ``trusts=[]``.
+        exposure_to_technology : bool, optional
+            If the agent uses the new technology, is will be True, or else, it is False.
 
         Returns
         -------
@@ -144,6 +147,7 @@ class Add:
             name=name,
             team=team_id,
             opinions=opinions, # History of agent opinions
+            exposure_to_technology=exposure_to_technology,
         )
 
         if initial_self_trust is not None:

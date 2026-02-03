@@ -34,6 +34,8 @@ class Serialization:
     - A schema version is embedded to guard against incompatible structural changes.
     """
 
+    SERIALIZATION_VERSION = 1
+
     def to_dict(self) -> dict:
         """
         Serialize the organization to a JSON-safe Python dictionary.
@@ -71,37 +73,6 @@ class Serialization:
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
-        """
-        Deserialize an organization from a dictionary produced by :meth:`to_dict`.
-
-        Parameters
-        ----------
-        data : dict
-            Dictionary created by :meth:`to_dict`.
-
-        Returns
-        -------
-        Self
-            A newly constructed organization instance with restored graphs and histories.
-
-        Raises
-        ------
-        ValueError
-            If the embedded schema version does not match ``cls.SERIALIZATION_VERSION``.
-        KeyError
-            If required keys (e.g., ``"G_teams"``, ``"G_agents"``) are missing.
-
-        Notes
-        -----
-        After loading graphs, this method applies normalization/safety defaults:
-        - Ensures self-loops exist for every team/agent node (with ``trusts`` history).
-        - Ensures expected node attributes exist:
-          - teams: ``name``, ``opinions``
-          - agents: ``name``, ``team``, ``opinions``
-
-        If your model assumes additional invariants, this is the correct place to
-        enforce them.
-        """
         schema = data.get("schema", {})
         version = schema.get("version", None)
         if version != cls.SERIALIZATION_VERSION:
@@ -116,29 +87,37 @@ class Serialization:
         org.G_teams = json_graph.node_link_graph(data["G_teams"], directed=True)
         org.G_agents = json_graph.node_link_graph(data["G_agents"], directed=True)
 
-        # --- optional safety checks / normalization ---
-        # Ensure self-loops exist (if your model assumes them)
+        # --- ensure self-loops exist (if your model assumes them) ---
         for t in org.G_teams.nodes():
             if not org.G_teams.has_edge(t, t):
                 org.G_teams.add_edge(t, t, trusts=[])
-            else:
-                org.G_teams.edges[t, t].setdefault("trusts", [])
 
         for a in org.G_agents.nodes():
             if not org.G_agents.has_edge(a, a):
                 org.G_agents.add_edge(a, a, trusts=[])
-            else:
-                org.G_agents.edges[a, a].setdefault("trusts", [])
 
-        # Ensure expected node attrs exist
+        # --- ensure ALL edges have trust histories ---
+        for u, v, attrs in org.G_teams.edges(data=True):
+            attrs.setdefault("trusts", [])
+            attrs["trusts"] = list(attrs["trusts"])
+
+        for u, v, attrs in org.G_agents.edges(data=True):
+            attrs.setdefault("trusts", [])
+            attrs["trusts"] = list(attrs["trusts"])
+
+        # --- ensure expected node attrs exist ---
         for t, attrs in org.G_teams.nodes(data=True):
             attrs.setdefault("name", None)
             attrs.setdefault("opinions", [])
+            attrs["opinions"] = list(attrs["opinions"])
 
         for a, attrs in org.G_agents.nodes(data=True):
             attrs.setdefault("name", None)
             attrs.setdefault("team", None)
             attrs.setdefault("opinions", [])
+            attrs["opinions"] = list(attrs["opinions"])
+            attrs.setdefault("exposure_to_technology", True)  # NEW
+            attrs["exposure_to_technology"] = bool(attrs["exposure_to_technology"])
 
         return org
 

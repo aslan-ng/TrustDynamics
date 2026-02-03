@@ -905,6 +905,7 @@
             1.0,
             1.0
           ],
+          "exposure_to_technology": true,
           "id": 3
         },
         {
@@ -1013,6 +1014,7 @@
             0.08256576543754014,
             -0.06743423456245985
           ],
+          "exposure_to_technology": true,
           "id": 4
         },
         {
@@ -1121,6 +1123,7 @@
             1.0,
             0.85
           ],
+          "exposure_to_technology": true,
           "id": 5
         },
         {
@@ -1229,6 +1232,7 @@
             1.0,
             1.0
           ],
+          "exposure_to_technology": true,
           "id": 6
         },
         {
@@ -1337,6 +1341,7 @@
             0.5931635817087352,
             0.6431635817087352
           ],
+          "exposure_to_technology": true,
           "id": 7
         }
       ],

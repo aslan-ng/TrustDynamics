@@ -49,6 +49,7 @@ class Initialization:
         if n == 0:
             return
         
+        # Stop overwriting already existing initial opinions (if any)
         existing_opinions = []
         for agent_id in agent_ids:
             existing_opinion = self.organization.get_agent_opinion(agent_id)
@@ -101,15 +102,19 @@ class Initialization:
         
         # Self-trust
         for agent_id in agent_ids:
-            trust = map_to_range(centrality01[agent_id], trust_min, trust_max)
-            self.organization.set_agent_trust(agent_id, agent_id, trust)
+            existing_value = self.organization.get_agent_trust(agent_1=agent_id, agent_2=agent_id)
+            if existing_value is None: # not overwriting already existing values
+                trust = map_to_range(centrality01[agent_id], trust_min, trust_max)
+                self.organization.set_agent_trust(agent_id, agent_id, trust)
 
         # Trust in others
         for agent_id in agent_ids:
             connected_agents = self.organization.agents_connected_to(agent_id)
-            for other_team_id in connected_agents:
-                trust = map_to_range(centrality01[other_team_id], trust_min, trust_max)
-                self.organization.set_agent_trust(agent_id, other_team_id, trust)
+            for other_agent_id in connected_agents:
+                existing_value = self.organization.get_agent_trust(agent_1=agent_id, agent_2=other_agent_id)
+                if existing_value is None: # not overwriting already existing values
+                    trust = map_to_range(centrality01[other_agent_id], trust_min, trust_max)
+                    self.organization.set_agent_trust(agent_id, other_agent_id, trust)
 
     def initialize_teams_trust(self):
         """
@@ -144,12 +149,16 @@ class Initialization:
         
         # Self-trust
         for team_id in team_ids:
-            trust = map_to_range(centrality01[team_id], trust_min, trust_max)
-            self.organization.set_team_trust(team_id, team_id, trust)
+            existing_value = self.organization.get_team_trust(team_1=team_id, team_2=team_id)
+            if existing_value is None: # not overwriting already existing values
+                trust = map_to_range(centrality01[team_id], trust_min, trust_max)
+                self.organization.set_team_trust(team_id, team_id, trust)
 
         # Trust in others
         for team_id in team_ids:
             connected_teams = self.organization.teams_connected_to(team_id)
             for other_team_id in connected_teams:
-                trust = map_to_range(centrality01[other_team_id], trust_min, trust_max)
-                self.organization.set_team_trust(team_id, other_team_id, trust)
+                existing_value = self.organization.get_team_trust(team_1=team_id, team_2=other_team_id)
+                if existing_value is None: # not overwriting already existing values
+                    trust = map_to_range(centrality01[other_team_id], trust_min, trust_max)
+                    self.organization.set_team_trust(team_id, other_team_id, trust)

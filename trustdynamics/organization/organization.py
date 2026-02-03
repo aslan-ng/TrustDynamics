@@ -39,8 +39,6 @@ class Organization(
         Provides visualization utilities for teams and agents.
     """
 
-    SERIALIZATION_VERSION = 1
-
     def __init__(self, name: str = "Organization"):
         """
         Initialize an empty organization.
