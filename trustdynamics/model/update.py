@@ -216,10 +216,11 @@ class Update:
         """
         agents = self.organization.all_agent_ids
         for agent_id in agents:
-            current_opinion = self.organization.get_agent_opinion(agent_id)
-            tech_successful: bool = self.rng.random() < self.technology_success_rate
-            if tech_successful:
-                new_opinion = min(current_opinion + self.tech_successful_delta, 1.0)
-            else:
-                new_opinion = max(current_opinion + self.tech_failure_delta, -1.0)
-            self.organization.set_agent_opinion(agent_id, new_opinion)
+            if self.organization.get_agent_exposure_to_technology(agent_id) is True:
+                current_opinion = self.organization.get_agent_opinion(agent_id)
+                tech_successful: bool = self.rng.random() < self.technology_success_rate
+                if tech_successful:
+                    new_opinion = min(current_opinion + self.tech_successful_delta, 1.0)
+                else:
+                    new_opinion = max(current_opinion + self.tech_failure_delta, -1.0)
+                self.organization.set_agent_opinion(agent_id, new_opinion)

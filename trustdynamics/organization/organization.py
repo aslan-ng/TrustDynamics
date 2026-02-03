@@ -435,6 +435,18 @@ class Organization(
         """
         return self.opinions
     
+    def get_agent_exposure_to_technology(self, agent: int | str) -> bool:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to get exposure_to_technology.")
+        return self.G_agents.nodes[agent_id].get("exposure_to_technology", [])
+    
+    def set_agent_exposure_to_technology(self, agent: int | str, value: bool) -> bool:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError("Agent must exist in the organization to set exposure_to_technology.")
+        self.G_agents.nodes[agent_id]["exposure_to_technology"] = value
+    
     def get_agent_trust(self, agent_1: int | str, agent_2: int | str, history_index: int = -1) -> float:
         """
         Return the trust value from one agent to another at a given history index.
