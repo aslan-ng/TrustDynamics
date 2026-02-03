@@ -3,13 +3,15 @@ import networkx as nx
 import pandas as pd
 
 
+from trustdynamics.organization.add import Add
 from trustdynamics.organization.serialization import Serialization
 from trustdynamics.organization.graphics import Graphics
 from trustdynamics.organization.stat import Stat
-from trustdynamics.utils import new_unique_id, row_stochasticize
+from trustdynamics.utils import row_stochasticize
 
 
 class Organization(
+    Add,
     Serialization,
     Graphics,
     Stat
@@ -209,170 +211,6 @@ class Organization(
             if existing_name == name:
                 return False
         return True
-
-    def add_team(
-            self,
-            name: str | None = None,
-        ) -> int:
-        """
-        Add a new team to the organization.
-
-        Parameters
-        ----------
-        name : str, optional
-            Team name (must be unique).
-
-        Returns
-        -------
-        int
-            Unique identifier of the newly created team.
-
-        Raises
-        ------
-        ValueError
-            If the name already exists.
-        """
-        if not self._is_name_unique(name):
-            raise ValueError(f"Team name must be unique in the organization. '{name}' already exists.")
-        team_id = new_unique_id(existing_values=self.all_ids)
-        self.G_teams.add_node(
-            team_id,
-            name=name,
-            opinions=[], # History of team opinions
-        )
-        self.G_teams.add_edge(
-            team_id,
-            team_id,
-            trusts=[], # History of self-trust values
-        )
-        return team_id
-
-    def add_agent(
-            self,
-            name: str | None = None,
-            team: int | str = None,
-            initial_opinion: float = None,
-        ) -> int:
-        """
-        Add a new agent to a team.
-
-        Parameters
-        ----------
-        name : str or None, optional
-            Human-readable agent name. If provided, it must be unique across
-            all agents and teams in the organization. If ``None``, the agent
-            is added without a name.
-
-        team : int or str
-            Team identifier or team name to which the agent will belong.
-            The specified team **must already exist** in the organization.
-
-        initial_opinion : float or None, optional
-            Initial opinion value for the agent. If ``None``, the opinion will
-            be initialized later by the model's opinion initialization routine.
-
-        Returns
-        -------
-        int
-            Unique identifier of the newly created agent.
-
-        Raises
-        ------
-        ValueError
-            If the team does not exist or name is not unique.
-        """
-        if not self._is_name_unique(name):
-            raise ValueError(f"Agent name must be unique in the organization. '{name}' already exists.")
-        agent_id = new_unique_id(existing_values=self.all_ids)
-        if team is not None:
-            team_id = self.search(team)
-            if team_id is None:
-                raise ValueError("Team must exist in the organization to add an agent.")
-        else:
-            team_id = None
-            raise ValueError("Team cannot be None.") #####
-        if initial_opinion is not None:
-            opinions = [initial_opinion]
-        else:
-            opinions = []
-        self.G_agents.add_node(
-            agent_id,
-            name=name,
-            team=team_id,
-            opinions=opinions, # History of agent opinions
-        )
-        self.G_agents.add_edge(
-            agent_id,
-            agent_id,
-            trusts=[], # History of self-trust values
-        )
-        return agent_id
-
-    def add_agent_connection(self, agent_1: int | str, agent_2: int | str):
-        """
-        Create a bidirectional trust connection between two agents.
-
-        Agents must belong to the same team.
-
-        Parameters
-        ----------
-        agent_1, agent_2 : int | str
-            Agent identifiers or names.
-
-        Raises
-        ------
-        ValueError
-            If agents do not exist or are in different teams.
-        """
-        agent_1_id = self.search(agent_1)
-        agent_2_id = self.search(agent_2)
-        agent_1_team_id = self.agent_team_id(agent_1_id)
-        agent_2_team_id = self.agent_team_id(agent_2_id)
-        if agent_1_team_id is None or agent_2_team_id is None or agent_1_team_id != agent_2_team_id:
-            raise ValueError("Both agents must belong to the same team.")
-        if agent_1_id is not None and agent_2_id is not None:
-            self.G_agents.add_edge(
-                agent_1_id,
-                agent_2_id,
-                trusts=[], # History of trust values
-            )
-            self.G_agents.add_edge(
-                agent_2_id,
-                agent_1_id,
-                trusts=[], # History of trust values
-            )
-        else:
-            raise ValueError("Both agents must exist in the organization to add a connection.")
-
-    def add_team_connection(self, team_1: int | str, team_2: int | str):
-        """
-        Create a bidirectional trust connection between two teams.
-
-        Parameters
-        ----------
-        team_1, team_2 : int | str
-            Team identifiers or names.
-
-        Raises
-        ------
-        ValueError
-            If either team does not exist.
-        """
-        team_1_id = self.search(team_1)
-        team_2_id = self.search(team_2)
-        if team_1_id is not None and team_2_id is not None:
-            self.G_teams.add_edge(
-                team_1_id,
-                team_2_id,
-                trusts=[], # History of trust values
-            )
-            self.G_teams.add_edge(
-                team_2_id,
-                team_1_id,
-                trusts=[], # History of trust values
-            )
-        else:
-            raise ValueError("Both teams must exist in the organization to add a connection.")
         
     def search(self, input: int | str) -> int | None:
         """
@@ -625,7 +463,12 @@ class Organization(
             If the trust history is empty or index is out of range.
         """
         trust_history = self.get_agent_trust_history(agent_1, agent_2)
-        return trust_history[history_index]
+        if not trust_history:  # empty list
+            return None
+        try:
+            return trust_history[history_index]
+        except IndexError:
+            return None
     
     def set_agent_trust(self, agent_1: int | str, agent_2: int | str, trust: float):
         """
@@ -711,7 +554,12 @@ class Organization(
             If the trust history is empty or index is out of range.
         """
         trust_history = self.get_team_trust_history(team_1, team_2)
-        return trust_history[history_index]
+        if not trust_history:  # empty list
+            return None
+        try:
+            return trust_history[history_index]
+        except IndexError:
+            return None
     
     def set_team_trust(self, team_1: int | str, team_2: int | str, trust: float):
         """
