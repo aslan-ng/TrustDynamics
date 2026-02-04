@@ -7,7 +7,7 @@ class Technology:
         self,
         name: str = "Technology",
         success_rate: float = 1.0,
-        seed: int | None | np.random.Generator = None,
+        #seed: int | None | np.random.Generator = None,
     ):
         """
         Models the technology behavior.
@@ -25,7 +25,11 @@ class Technology:
             raise ValueError("success_rate must be between 0.0 and 1.0")
         self.success_rate = success_rate
 
-        if isinstance(seed, int) or seed is None:
+        # Rng management:
+        seed = None
+        if seed is None:
+            self.rng = np.random.default_rng(seed)
+        elif isinstance(seed, int):
             self.rng = np.random.default_rng(seed)
         elif isinstance(seed, np.random.Generator):
             self.rng = seed

@@ -2,7 +2,6 @@ import numpy as np
 import networkx as nx
 import pandas as pd
 
-
 from trustdynamics.organization.add import Add
 from trustdynamics.organization.initialization import Initialization
 from trustdynamics.organization.serialization import Serialization
@@ -60,12 +59,15 @@ class Organization(
         self.G_agents = nx.DiGraph() # directional graph to save agents data
         self.opinions = [] # history of orgnization aggregate opinions
 
-        if isinstance(seed, int) or seed is None:
+        # Rng management:
+        if seed is None:
+            self.rng = np.random.default_rng(seed)
+        elif isinstance(seed, int):
             self.rng = np.random.default_rng(seed)
         elif isinstance(seed, np.random.Generator):
             self.rng = seed
         
-        self.initialized: bool = False
+        self.require_initialization: bool = False
 
     @property
     def all_team_ids(self) -> set:

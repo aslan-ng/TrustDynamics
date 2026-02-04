@@ -6,7 +6,10 @@ from trustdynamics.organization import Organization
 from trustdynamics.technology import Technology
 
 
-class Model(Update, Serialization):
+class Model(
+    Update,
+    Serialization
+):
     """
     Core simulation model for trust and opinion dynamics in a multi-level organization.
 
@@ -27,7 +30,7 @@ class Model(Update, Serialization):
         self,
         organization: Organization,
         technology: Technology,
-        seed: int | None = None,
+        seed: int | None | np.random.Generator = None,
     ):
         """
         Initialize the trust–opinion dynamics model.
@@ -48,13 +51,23 @@ class Model(Update, Serialization):
             The same RNG is passed into initialization routines to ensure end-to-end
             reproducibility across opinion sampling and stochastic technology outcomes.
         """
-        self.rng = np.random.default_rng(seed)
+        # Organization
         self.organization = organization
 
+        # Technology
         self.technology = technology
-        technology.model = self
-        technology.rng = self.rng
+        technology.model = self # binding
 
+        if seed is None:
+            self.rng = self.organization.rng
+            technology.rng = self.rng
+        else:
+            if isinstance(seed, int):
+                self.rng = np.random.default_rng(seed)
+            elif isinstance(seed, np.random.Generator):
+                self.rng = seed
+            technology.rng = self.rng
+        
     @property
     def step(self):
         """
@@ -80,7 +93,7 @@ if __name__ == "__main__":
     organization.add_team_connection("Team B", "Team C")
     organization.add_team_connection("Team A", "Team D")
     """
-    organization.initialize()
+    organization.initialize(seed=4)
     
     model = Model(
         organization=organization,

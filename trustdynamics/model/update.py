@@ -56,7 +56,7 @@ class Update:
         3. Trust updates respond to new opinions
         4. Agents interact with technology (exogenous shock)
         """
-        if self.organization.initialized is False:
+        if self.organization.require_initialization is True:
             self.organization.initialize()
 
         self.update_teams_opinion()

@@ -84,6 +84,7 @@ class Add:
             trusts = [initial_self_trust]
         else:
             trusts = []
+            self.require_initialization = True
 
         self.G_teams.add_edge(
             team_id,
@@ -190,7 +191,7 @@ class Add:
         
         agent_id = new_unique_id(existing_values=self.all_ids)
         
-        if team is not None:
+        if team is not None: #####
             team_id = self.search(team)
             if team_id is None:
                 raise ValueError("Team must exist in the organization to add an agent.")
@@ -202,6 +203,7 @@ class Add:
             opinions = [initial_opinion]
         else:
             opinions = []
+            self.require_initialization = True
         
         self.G_agents.add_node(
             agent_id,
@@ -220,6 +222,7 @@ class Add:
             trusts = [initial_self_trust]
         else:
             trusts = []
+            self.require_initialization = True
 
         self.G_agents.add_edge(
             agent_id,
@@ -282,6 +285,7 @@ class Add:
                 trusts = [initial_trust_1_to_2]
             else:
                 trusts = []
+                self.require_initialization = True
             self.G_agents.add_edge(
                 agent_1_id,
                 agent_2_id,
@@ -291,6 +295,7 @@ class Add:
                 trusts = [initial_trust_2_to_1]
             else:
                 trusts = []
+                self.require_initialization = True
             self.G_agents.add_edge(
                 agent_2_id,
                 agent_1_id,
@@ -341,6 +346,7 @@ class Add:
                 trusts = [initial_trust_1_to_2]
             else:
                 trusts = []
+                self.require_initialization = True
             self.G_teams.add_edge(
                 team_1_id,
                 team_2_id,
@@ -350,6 +356,7 @@ class Add:
                 trusts = [initial_trust_2_to_1]
             else:
                 trusts = []
+                self.require_initialization = True
             self.G_teams.add_edge(
                 team_2_id,
                 team_1_id,

@@ -20,6 +20,7 @@ class Initialization:
 
     def initialize(
         self,
+        *,
         # Agents' opinion
         agents_average_initial_opinion: float = 0.0,
         agents_initial_opinion_min: float = -1.0,
@@ -30,6 +31,8 @@ class Initialization:
         # Teams' trust
         teams_initial_trust_min: float = 0.01,
         teams_initial_trust_max: float = 0.99,
+
+        seed: int | None | np.random.Generator = None,
     ):
         """
         Initialize the model once before the first update cycle.
@@ -66,6 +69,15 @@ class Initialization:
         teams_initial_trust_max : float, optional
             Upper bound for *initial* directed team→team trust values.
         """
+
+        # Rng management:
+        if seed is None and self.rng is None:
+            self.rng = np.random.default_rng(seed)
+        elif isinstance(seed, int):
+            self.rng = np.random.default_rng(seed)
+        elif isinstance(seed, np.random.Generator):
+            self.rng = seed
+
         # Agents' opinion
         if agents_average_initial_opinion < -1.0 or agents_average_initial_opinion > 1.0:
             raise ValueError("agents_average_initial_opinion must be between -1.0 and 1.0")
@@ -105,7 +117,7 @@ class Initialization:
             initial_trust_max=teams_initial_trust_max,
         )
 
-        self.initialized = True
+        self.require_initialization = False
 
     def _initialize_agents_opinion(
         self,
