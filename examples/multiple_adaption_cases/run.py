@@ -1,7 +1,9 @@
 from copy import deepcopy
 from pathlib import Path
-from trustdynamics import Model, Organization
+from trustdynamics import Model, Organization, Technology
 
+
+seed = 42
 
 technology_success_rates = [0.6, 0.7, 0.8, 0.9]
 
@@ -19,14 +21,15 @@ if __name__ == "__main__":
     org.add_agent_connection("Agent 3", "Agent 4")
     org.add_agent_connection("Agent 2", "Agent 4")
     org.add_agent_connection("Agent 2", "Agent 5")
-
+    org.initialize(seed=seed)
+    
     BASE_DIR = Path(__file__).resolve().parent
 
     for technology_success_rate in technology_success_rates:
+        tech = Technology(success_rate=technology_success_rate, seed=seed)
         model = Model(
             organization=deepcopy(org),
-            technology_success_rate=technology_success_rate,
-            seed=42
+            technology=tech
         )
         model.run(steps=100)
         model.save(BASE_DIR / "models" / f"model_{technology_success_rate}.json")

@@ -1,8 +1,9 @@
 from copy import deepcopy
 from pathlib import Path
-from trustdynamics import Model, Organization
+from trustdynamics import Model, Organization, Technology
 
 
+seed = 42
 agents_average_initial_opinions = [-1.0, -0.5, 0.0, 0.5, 1.0]
 
 
@@ -25,11 +26,15 @@ if __name__ == "__main__":
     models_dir = BASE_DIR / "models"
 
     for agents_average_initial_opinion in agents_average_initial_opinions:
-        model = Model(
-            organization=deepcopy(org),
-            seed=42,
+        organization = deepcopy(org)
+        organization.initialize(
             agents_average_initial_opinion=agents_average_initial_opinion,
-            technology_success_rate=0.8
+            seed=seed
+        )
+        technoloty = Technology(success_rate=0.8, seed=seed)
+        model = Model(
+            organization=organization,
+            technology=technoloty
         )
         model.run(steps=200)
         model.save(models_dir / f"model_{agents_average_initial_opinion}.json")

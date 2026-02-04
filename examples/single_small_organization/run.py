@@ -1,6 +1,8 @@
 from pathlib import Path
-from trustdynamics import Model, Organization
+from trustdynamics import Model, Organization, Technology
 
+
+seed = 42
 
 org = Organization()
 org.add_team(name="Team A")
@@ -15,8 +17,11 @@ org.add_agent_connection("Agent 2", "Agent 3")
 org.add_agent_connection("Agent 3", "Agent 4")
 org.add_agent_connection("Agent 2", "Agent 4")
 org.add_agent_connection("Agent 2", "Agent 5")
+org.initialize(seed=seed)
 
-model = Model(organization=org, seed=42)
+tech = Technology(success_rate=1.0, seed=seed)
+
+model = Model(organization=org, technology=tech)
 model.run(steps=100)
 
 BASE_DIR = Path(__file__).resolve().parent
