@@ -31,7 +31,7 @@ class Initialization:
         # Teams' trust
         teams_initial_trust_min: float = 0.01,
         teams_initial_trust_max: float = 0.99,
-
+        # Random generator
         seed: int | None | np.random.Generator = None,
     ):
         """
@@ -69,14 +69,13 @@ class Initialization:
         teams_initial_trust_max : float, optional
             Upper bound for *initial* directed team→team trust values.
         """
-
-        # Rng management:
-        if seed is None and self.rng is None:
-            self.rng = np.random.default_rng(seed)
-        elif isinstance(seed, int):
+        # Random generator
+        if isinstance(seed, int) or seed is None:
             self.rng = np.random.default_rng(seed)
         elif isinstance(seed, np.random.Generator):
             self.rng = seed
+        
+        self.require_initialization: bool = False
 
         # Agents' opinion
         if agents_average_initial_opinion < -1.0 or agents_average_initial_opinion > 1.0:

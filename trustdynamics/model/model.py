@@ -30,7 +30,6 @@ class Model(
         self,
         organization: Organization,
         technology: Technology,
-        seed: int | None | np.random.Generator = None,
     ):
         """
         Initialize the trust–opinion dynamics model.
@@ -57,16 +56,6 @@ class Model(
         # Technology
         self.technology = technology
         technology.model = self # binding
-
-        if seed is None:
-            self.rng = self.organization.rng
-            technology.rng = self.rng
-        else:
-            if isinstance(seed, int):
-                self.rng = np.random.default_rng(seed)
-            elif isinstance(seed, np.random.Generator):
-                self.rng = seed
-            technology.rng = self.rng
         
     @property
     def step(self):
@@ -93,12 +82,12 @@ if __name__ == "__main__":
     organization.add_team_connection("Team B", "Team C")
     organization.add_team_connection("Team A", "Team D")
     """
-    organization.initialize(seed=4)
+    organization.initialize(seed=42)
+    technology = Technology(success_rate=0.9, seed=42)
     
     model = Model(
         organization=organization,
-        technology=Technology(success_rate=0.9),
-        seed=42
+        technology=technology,
     )
     """
     print(model.organization.get_team_trust(team_1="Team A", team_2="Team A"))

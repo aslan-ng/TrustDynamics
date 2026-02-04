@@ -57,7 +57,7 @@ class Update:
         4. Agents interact with technology (exogenous shock)
         """
         if self.organization.require_initialization is True:
-            self.organization.initialize()
+            self.initialize()
 
         self.update_teams_opinion()
         self.update_organization_opinion()

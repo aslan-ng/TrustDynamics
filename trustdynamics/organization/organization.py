@@ -43,7 +43,6 @@ class Organization(
     def __init__(
         self,
         name: str = "Organization",
-        seed: int | None | np.random.Generator = None,
     ):
         """
         Initialize an empty organization.
@@ -58,16 +57,6 @@ class Organization(
         self.G_teams = nx.DiGraph() # directional graph to save teams data
         self.G_agents = nx.DiGraph() # directional graph to save agents data
         self.opinions = [] # history of orgnization aggregate opinions
-
-        # Rng management:
-        if seed is None:
-            self.rng = np.random.default_rng(seed)
-        elif isinstance(seed, int):
-            self.rng = np.random.default_rng(seed)
-        elif isinstance(seed, np.random.Generator):
-            self.rng = seed
-        
-        self.require_initialization: bool = False
 
     @property
     def all_team_ids(self) -> set:
