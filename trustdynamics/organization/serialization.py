@@ -35,33 +35,12 @@ class Serialization:
     """
 
     SERIALIZATION_VERSION = 1
+    SERIALIZATION_NAME = "trustdynamics.organization.Organization"
 
     def to_dict(self) -> dict:
-        """
-        Serialize the organization to a JSON-safe Python dictionary.
-
-        The output is intended to be round-trippable via :meth:`from_dict` and
-        safe to store using :func:`json.dump`.
-
-        Returns
-        -------
-        dict
-            JSON-safe dictionary containing:
-            - schema metadata (name + version),
-            - organization name,
-            - organization-level opinion history,
-            - team graph in node-link format,
-            - agent graph in node-link format.
-
-        Notes
-        -----
-        - Uses NetworkX node-link format for graphs.
-        - Preserves node and edge attributes (including opinion/trust histories).
-        - Includes a schema version for forward compatibility checks.
-        """
-        data = {
+        return {
             "schema": {
-                "name": "trustdynamics.organization.Organization",
+                "name": self.SERIALIZATION_NAME,
                 "version": self.SERIALIZATION_VERSION,
             },
             "name": self.name,
@@ -69,12 +48,16 @@ class Serialization:
             "G_teams": json_graph.node_link_data(self.G_teams),
             "G_agents": json_graph.node_link_data(self.G_agents),
         }
-        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
         schema = data.get("schema", {})
         version = schema.get("version", None)
+        name = schema.get("name", None)
+
+        if name not in (None, cls.SERIALIZATION_NAME):
+            raise ValueError(f"Unsupported schema name: {name}")
+
         if version != cls.SERIALIZATION_VERSION:
             raise ValueError(
                 f"Unsupported serialization version: {version}. "
@@ -87,102 +70,104 @@ class Serialization:
         org.G_teams = json_graph.node_link_graph(data["G_teams"], directed=True)
         org.G_agents = json_graph.node_link_graph(data["G_agents"], directed=True)
 
-        # --- ensure self-loops exist (if your model assumes them) ---
-        for t in org.G_teams.nodes():
-            if not org.G_teams.has_edge(t, t):
-                org.G_teams.add_edge(t, t, trusts=[])
+        # -----------------------
+        # Invariants & migrations
+        # -----------------------
 
-        for a in org.G_agents.nodes():
-            if not org.G_agents.has_edge(a, a):
-                org.G_agents.add_edge(a, a, trusts=[])
+        def _ensure_self_loop_with_trusts(G):
+            for n in G.nodes():
+                if not G.has_edge(n, n):
+                    G.add_edge(n, n, trusts=[])
+                else:
+                    G.edges[n, n].setdefault("trusts", [])
 
-        # --- ensure ALL edges have trust histories ---
-        for u, v, attrs in org.G_teams.edges(data=True):
-            attrs.setdefault("trusts", [])
-            attrs["trusts"] = list(attrs["trusts"])
+        def _ensure_edge_trusts_list(G):
+            for u, v, attrs in G.edges(data=True):
+                attrs.setdefault("trusts", [])
+                # coerce to list (handles tuples / numpy arrays / None)
+                attrs["trusts"] = list(attrs["trusts"]) if attrs["trusts"] is not None else []
 
-        for u, v, attrs in org.G_agents.edges(data=True):
-            attrs.setdefault("trusts", [])
-            attrs["trusts"] = list(attrs["trusts"])
+        def _ensure_node_opinions_list(G):
+            for n, attrs in G.nodes(data=True):
+                attrs.setdefault("opinions", [])
+                attrs["opinions"] = list(attrs["opinions"]) if attrs["opinions"] is not None else []
 
-        # --- ensure expected node attrs exist ---
-        for t, attrs in org.G_teams.nodes(data=True):
-            attrs.setdefault("name", None)
-            attrs.setdefault("opinions", [])
-            attrs["opinions"] = list(attrs["opinions"])
+        # Team node defaults (add as you grow your API)
+        TEAM_DEFAULTS = {
+            "name": None,
+            "opinions": [],
+            "self_trust_learning_rate": 0.0,
+            "trust_learning_rate": 0.0,
+            "homophily_normative_tradeoff": 0.5,
+        }
 
-        for a, attrs in org.G_agents.nodes(data=True):
-            attrs.setdefault("name", None)
-            attrs.setdefault("team", None)
-            attrs.setdefault("opinions", [])
-            attrs["opinions"] = list(attrs["opinions"])
-            attrs.setdefault("exposure_to_technology", True)  # NEW
-            attrs["exposure_to_technology"] = bool(attrs["exposure_to_technology"])
+        # Agent node defaults
+        AGENT_DEFAULTS = {
+            "name": None,
+            "team": None,
+            "opinions": [],
+            "exposure_to_technology": True,
+            "technology_success_impact": 0.0,
+            "technology_failure_impact": 0.0,
+            "self_trust_learning_rate": 0.0,
+            "trust_learning_rate": 0.0,
+            "homophily_normative_tradeoff": 0.5,
+        }
+
+        def _apply_defaults(G, defaults: dict):
+            for n, attrs in G.nodes(data=True):
+                for k, v in defaults.items():
+                    attrs.setdefault(k, v)
+
+        def _coerce_types_team(attrs: dict):
+            # Keep these as floats
+            for k in ("self_trust_learning_rate", "trust_learning_rate", "homophily_normative_tradeoff"):
+                attrs[k] = float(attrs.get(k, 0.0))
+            # opinions already list, leave contents as-is (you can coerce if needed)
+
+        def _coerce_types_agent(attrs: dict):
+            attrs["exposure_to_technology"] = bool(attrs.get("exposure_to_technology", True))
+            for k in (
+                "technology_success_impact",
+                "technology_failure_impact",
+                "self_trust_learning_rate",
+                "trust_learning_rate",
+                "homophily_normative_tradeoff",
+            ):
+                attrs[k] = float(attrs.get(k, 0.0))
+
+        # Apply defaults
+        _apply_defaults(org.G_teams, TEAM_DEFAULTS)
+        _apply_defaults(org.G_agents, AGENT_DEFAULTS)
+
+        # Ensure opinions lists exist
+        _ensure_node_opinions_list(org.G_teams)
+        _ensure_node_opinions_list(org.G_agents)
+
+        # Ensure self-loops + trusts histories exist
+        _ensure_self_loop_with_trusts(org.G_teams)
+        _ensure_self_loop_with_trusts(org.G_agents)
+
+        # Ensure every edge has trusts list
+        _ensure_edge_trusts_list(org.G_teams)
+        _ensure_edge_trusts_list(org.G_agents)
+
+        # Coerce node attribute types
+        for _, attrs in org.G_teams.nodes(data=True):
+            _coerce_types_team(attrs)
+
+        for _, attrs in org.G_agents.nodes(data=True):
+            _coerce_types_agent(attrs)
 
         return org
 
     def save(self, path: str | Path) -> None:
-        """
-        Write the organization to disk as a JSON file.
-
-        Parameters
-        ----------
-        path : str | pathlib.Path
-            Destination file path.
-
-        Returns
-        -------
-        None
-
-        Notes
-        -----
-        The file content is generated by :meth:`to_dict` and written with:
-        - UTF-8 encoding
-        - ``ensure_ascii=False`` (preserves unicode)
-        - ``indent=2`` (human-readable formatting)
-
-        Raises
-        ------
-        OSError
-            If the file cannot be written (e.g., permissions, invalid path).
-        TypeError
-            If the object contains non-JSON-serializable content.
-        """
         path = Path(path)
         with path.open("w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """
-        Read an organization from a JSON file on disk.
-
-        Parameters
-        ----------
-        path : str | pathlib.Path
-            Path to the JSON file.
-
-        Returns
-        -------
-        Self
-            Deserialized organization instance.
-
-        Raises
-        ------
-        OSError
-            If the file cannot be read (e.g., missing file, permissions).
-        json.JSONDecodeError
-            If the file is not valid JSON.
-        ValueError
-            If the schema version is unsupported (raised by :meth:`from_dict`).
-        KeyError
-            If required keys are missing in the JSON payload (raised by :meth:`from_dict`).
-
-        See Also
-        --------
-        from_dict : Constructs an instance from an in-memory dictionary.
-        save : Writes an instance to disk.
-        """
         path = Path(path)
         with path.open("r", encoding="utf-8") as f:
             data = json.load(f)
