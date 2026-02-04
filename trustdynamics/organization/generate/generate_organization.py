@@ -11,6 +11,9 @@ def generate(
     teams_connection_probability: float,
     seed: int | np.random.Generator | None = None,
 ) -> Organization:
+    """
+    Generate a random team structure.
+    """
     # Validate inputs
     if teams_count <= 0:
         raise ValueError("teams_count must be > 0.")
@@ -22,12 +25,12 @@ def generate(
     ]:
         if not (0.0 <= p <= 1.0):
             raise ValueError(f"{name} must be between 0 and 1.")
-
+    
     # RNG handling
-    if isinstance(seed, np.random.Generator):
-        rng = seed
-    else:
+    if isinstance(seed, int) or seed is None:
         rng = np.random.default_rng(seed)
+    elif isinstance(seed, np.random.Generator):
+        rng = seed
 
     org = Organization()
 
