@@ -106,7 +106,6 @@ class Serialization:
             "name": None,
             "team": None,
             "opinions": [],
-            "exposure_to_technology": True,
             "technology_success_impact": 0.0,
             "technology_failure_impact": 0.0,
             "self_trust_learning_rate": 0.0,
@@ -126,7 +125,6 @@ class Serialization:
             # opinions already list, leave contents as-is (you can coerce if needed)
 
         def _coerce_types_agent(attrs: dict):
-            attrs["exposure_to_technology"] = bool(attrs.get("exposure_to_technology", True))
             for k in (
                 "technology_success_impact",
                 "technology_failure_impact",

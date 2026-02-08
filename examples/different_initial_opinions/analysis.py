@@ -24,7 +24,7 @@ for agents_average_initial_opinion in agents_average_initial_opinions:
 plt.xlabel("Time step")
 plt.ylabel("Opinion")
 plt.title("Organization Opinion Over Time")
-plt.legend(title="Average initial opinion")
+#plt.legend(title="Average initial opinion")
 plt.grid(True)
 plt.tight_layout()
 

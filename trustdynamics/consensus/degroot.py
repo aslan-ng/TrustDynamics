@@ -123,6 +123,9 @@ if __name__ == "__main__":
     model = Degroot(W)
 
     opinions = pd.Series([0.1, 0.3, 0.5], index=W.index, name="opinions")
-    result = model.run_steps(opinions)
+    result = model.run_steps(
+        opinions,
+        steps=1
+    )
 
     print(result["final_opinions"])

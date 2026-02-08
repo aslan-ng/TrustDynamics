@@ -377,27 +377,46 @@ class Organization(
         except IndexError:
             return None  
     
-    def set_agent_opinion(self, agent: int | str, opinion: float):
+    def set_agent_opinion(
+        self,
+        agent: int | str,
+        opinion: float,
+        *,
+        mode: str = "append",  # "append" or "overwrite"
+    ):
         """
-        Append a new opinion value to an agent's opinion history.
+        Set an agent's opinion value.
 
         Parameters
         ----------
         agent : int | str
             Agent identifier or name.
-        opinion : float
-            Opinion value to append.
 
-        Raises
-        ------
-        ValueError
-            If the agent does not exist.
+        opinion : float
+            Opinion value.
+
+        mode : {"append", "overwrite"}
+            - "append": add as a new time step.
+            - "overwrite": replace the most recent value.
         """
         opinion = float(opinion)
         agent_id = self.search(agent)
+
         if agent_id is None:
             raise ValueError("Agent must exist in the organization to set opinion.")
-        self.G_agents.nodes[agent_id]["opinions"].append(opinion)
+
+        history = self.G_agents.nodes[agent_id]["opinions"]
+
+        if mode == "append":
+            history.append(opinion)
+
+        elif mode == "overwrite":
+            if len(history) == 0:
+                raise ValueError("Cannot overwrite opinion history because it is empty.")
+            history[-1] = opinion
+
+        else:
+            raise ValueError("mode must be 'append' or 'overwrite'")
 
     def get_agent_opinions_history(self, agent: int | str) -> list:
         """
@@ -454,27 +473,46 @@ class Organization(
         except IndexError:
             return None
     
-    def set_team_opinion(self, team: int | str, opinion: float):
+    def set_team_opinion(
+        self,
+        team: int | str,
+        opinion: float,
+        *,
+        mode: str = "append",  # "append" or "overwrite"
+    ):
         """
-        Append a new opinion value to a team's opinion history.
+        Set a team's opinion value.
 
         Parameters
         ----------
         team : int | str
             Team identifier or name.
-        opinion : float
-            Opinion value to append.
 
-        Raises
-        ------
-        ValueError
-            If the team does not exist.
+        opinion : float
+            Opinion value.
+
+        mode : {"append", "overwrite"}
+            - "append": add as a new time step.
+            - "overwrite": replace the most recent value.
         """
         opinion = float(opinion)
         team_id = self.search(team)
+
         if team_id is None:
             raise ValueError("Team must exist in the organization to set opinion.")
-        self.G_teams.nodes[team_id]["opinions"].append(opinion)
+
+        history = self.G_teams.nodes[team_id]["opinions"]
+
+        if mode == "append":
+            history.append(opinion)
+
+        elif mode == "overwrite":
+            if len(history) == 0:
+                raise ValueError("Cannot overwrite team opinion history because it is empty.")
+            history[-1] = opinion
+
+        else:
+            raise ValueError("mode must be 'append' or 'overwrite'")
 
     def get_team_opinions_history(self, team: int | str) -> list:
         """
@@ -543,18 +581,6 @@ class Organization(
             List of organization opinion values in chronological order.
         """
         return self.opinions
-    
-    def get_agent_exposure_to_technology(self, agent: int | str) -> bool:
-        agent_id = self.search(agent)
-        if agent_id is None:
-            raise ValueError("Agent must exist in the organization to get exposure_to_technology.")
-        return self.G_agents.nodes[agent_id].get("exposure_to_technology", [])
-    
-    def set_agent_exposure_to_technology(self, agent: int | str, value: bool) -> bool:
-        agent_id = self.search(agent)
-        if agent_id is None:
-            raise ValueError("Agent must exist in the organization to set exposure_to_technology.")
-        self.G_agents.nodes[agent_id]["exposure_to_technology"] = value
     
     def get_agent_trust(self, agent_1: int | str, agent_2: int | str, history_index: int = -1) -> float:
         """
@@ -1054,6 +1080,7 @@ if __name__ == "__main__":
     org.add_agent(name="Agent 3", team="Team B")
 
     org.add_agent_connection("Agent 2", "Agent 3")
+    org.initialize(seed=42)
 
     print(org.stat)
     #org.show_agents()

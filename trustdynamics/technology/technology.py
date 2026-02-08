@@ -42,12 +42,9 @@ class Technology:
             return tech_successful
         if agent_id is None:
             return generate()
-        access = self.model.organization.get_agent_exposure_to_technology(agent_id)
-        if access is True:
-            tech_successful: bool = self.rng.random() < self.success_rate
-            return tech_successful
-        else:
-            return None
+        opinion = self.model.organization.get_agent_opinion(agent_id) ###
+        tech_successful: bool = self.rng.random() < self.success_rate
+        return tech_successful
         
     # ------------------------------------------------------------------
     # Serialization

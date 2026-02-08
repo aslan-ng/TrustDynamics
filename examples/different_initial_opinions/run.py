@@ -4,7 +4,7 @@ from trustdynamics import Model, Organization, Technology
 
 
 seed = 42
-agents_average_initial_opinions = [-1.0, -0.5, 0.0, 0.5, 1.0]
+agents_average_initial_opinions = [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0]
 
 
 if __name__ == "__main__":

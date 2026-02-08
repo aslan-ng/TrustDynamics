@@ -100,7 +100,6 @@ class Add:
             team: int | str = None,
             initial_opinion: float = None,
             initial_self_trust: float | None = None,
-            exposure_to_technology: bool = True,
             technology_success_impact: float = 0.05,
             technology_failure_impact: float = -0.15,
             self_trust_learning_rate: float = 0.1,
@@ -134,8 +133,6 @@ class Add:
             self-loop edge ``(agent_id, agent_id)`` is initialized with
             ``trusts=[initial_self_trust]``; otherwise it is initialized with an
             empty list ``trusts=[]``.
-        exposure_to_technology : bool, optional
-            If the agent uses the new technology, is will be True, or else, it is False.
         technology_success_impact : float, optional
             Opinion increment applied to an agent upon successful technology use.
             Expected nonnegative; opinions are clipped to +1.
@@ -210,7 +207,6 @@ class Add:
             name=name,
             team=team_id,
             opinions=opinions, # History of agent opinions
-            exposure_to_technology=exposure_to_technology,
             technology_success_impact=technology_success_impact,
             technology_failure_impact=technology_failure_impact,
             self_trust_learning_rate=self_trust_learning_rate,

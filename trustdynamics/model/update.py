@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm import tqdm
+from copy import deepcopy
 
 from trustdynamics.consensus import Degroot
 
@@ -74,21 +75,16 @@ class Update:
         - If multiple agents → run DeGroot consensus to convergence
         - Aggregate final agent opinions via mean (robust, symmetric)
         """
+        teams = list(self.organization.all_team_ids)
         # If there are no teams, nothing to do
-        if len(self.organization.all_team_ids) == 0:
+        if len(teams) == 0:
             return
 
-        for team_id in self.organization.all_team_ids:
+        for team_id in teams:
             agents = list(self.organization.agents_from_team(team_id))
             if len(agents) == 0:
                 # Optional: define behavior for empty teams
                 # self.organization.set_team_opinion(team_id, 0.0)
-                continue
-
-            if len(agents) == 1:
-                # Team opinion equals the only agent's current opinion
-                only_agent = next(iter(agents))
-                self.organization.set_team_opinion(team_id, float(self.organization.get_agent_opinion(only_agent)))
                 continue
             
             # Solve consensus
@@ -96,19 +92,17 @@ class Update:
             consensus_model = self.consensus(W)
             res = consensus_model.run_steps(
                 x0,
-                steps=3,
-                threshold=1e-6,
-                max_steps=10_000
+                steps=1,
             )
             x_final = res["final_opinions"]
 
             # Update agents opinion
             for agent_id, x in zip(agents, x_final):
-                self.organization.set_agent_opinion(agent_id, float(x))
+                self.organization.set_agent_opinion(agent_id, opinion=float(x), mode="overwrite")
             
             # Form team opinion
             team_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
-            self.organization.set_team_opinion(team_id, team_opinion)
+            self.organization.set_team_opinion(team_id, team_opinion, mode="append")
 
     def update_organization_opinion(self):
         """
@@ -122,15 +116,13 @@ class Update:
         consensus_model = self.consensus(W)
         res = consensus_model.run_steps(
             x0,
-            steps=3,
-            threshold=1e-6,
-            max_steps=10_000
+            steps=1,
         )
         x_final = res["final_opinions"]
 
         # Update teams opinion
-        for team_id, x in zip(teams, x_final):
-            self.organization.set_team_opinion(team_id, float(x))
+        #for team_id, x in zip(teams, x_final):
+        #    self.organization.set_team_opinion(team_id, opinion=float(x), mode="overwrite")
 
         # Form organization opinion      
         organization_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
@@ -242,15 +234,7 @@ class Update:
         for agent_id in agents:
             current_opinion = self.organization.get_agent_opinion(agent_id)
             
-            # Update exposure to technology
-            if self.organization.get_agent_exposure_to_technology(agent_id) is True and current_opinion < 0:
-                self.organization.set_agent_exposure_to_technology(agent_id, False)
-            if self.organization.get_agent_exposure_to_technology(agent_id) is False and current_opinion >= 0:
-                self.organization.set_agent_exposure_to_technology(agent_id, True)
-
-            # Technology impact
-            if self.organization.get_agent_exposure_to_technology(agent_id) is True:
-                
+            if current_opinion >= 0: # technology impact
                 tech_successful = self.technology.use(agent_id)
                 if tech_successful:
                     delta = self.organization.get_agent_technology_success_impact(agent_id)
@@ -258,4 +242,7 @@ class Update:
                 else:
                     delta = self.organization.get_agent_technology_failure_impact(agent_id)
                     new_opinion = max(current_opinion + delta, -1.0)
-                self.organization.set_agent_opinion(agent_id, new_opinion)
+            else: # stay dormant
+                new_opinion = deepcopy(current_opinion)
+
+            self.organization.set_agent_opinion(agent_id, new_opinion, mode="append")
