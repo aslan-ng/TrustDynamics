@@ -1,13 +1,13 @@
 import numpy as np
 from itertools import combinations
 
-from trustdynamics.organization import Organization
+from trustdynamics.organization.organization import Organization
 
 
-def generate(
-    teams_count: int,
-    agents_count: int,
-    agents_connectoion_probability_inside_team: float,
+def generate_random_organization_structure(
+    teams_num: int,
+    agents_num: int,
+    agents_connection_probability_inside_team: float,
     teams_connection_probability: float,
     seed: int | np.random.Generator | None = None,
 ) -> Organization:
@@ -15,12 +15,12 @@ def generate(
     Generate a random team structure.
     """
     # Validate inputs
-    if teams_count <= 0:
-        raise ValueError("teams_count must be > 0.")
-    if agents_count < 0:
-        raise ValueError("agents_count must be >= 0.")
+    if teams_num <= 0:
+        raise ValueError("teams_num must be > 0.")
+    if agents_num < 0:
+        raise ValueError("agents_num must be >= 0.")
     for p, name in [
-        (agents_connectoion_probability_inside_team, "agents_connectoion_probability_inside_team"),
+        (agents_connection_probability_inside_team, "agents_connectoion_probability_inside_team"),
         (teams_connection_probability, "teams_connection_probability"),
     ]:
         if not (0.0 <= p <= 1.0):
@@ -35,7 +35,7 @@ def generate(
     org = Organization()
 
     # --- create teams ---
-    team_names = np.array([f"Team {i+1}" for i in range(teams_count)], dtype=object)
+    team_names = np.array([f"Team {i+1}" for i in range(teams_num)], dtype=object)
     for name in team_names:
         org.add_team(name=str(name))
 
@@ -45,28 +45,28 @@ def generate(
         raise RuntimeError("Failed to resolve some team IDs after creation.")
 
     # --- connect teams ONCE (using IDs) ---
-    for i, j in combinations(range(teams_count), 2):
+    for i, j in combinations(range(teams_num), 2):
         if rng.random() < teams_connection_probability:
             org.add_team_connection(team_ids[i], team_ids[j])
 
     # --- balanced team assignment for agents ---
-    base = agents_count // teams_count
-    rem = agents_count % teams_count
+    base = agents_num // teams_num
+    rem = agents_num % teams_num
 
-    counts = np.full(teams_count, base, dtype=int)
+    counts = np.full(teams_num, base, dtype=int)
     counts[:rem] += 1
 
-    team_idx = np.repeat(np.arange(teams_count), counts)
+    team_idx = np.repeat(np.arange(teams_num), counts)
     rng.shuffle(team_idx)
 
-    agent_names = np.array([f"Agent {k+1}" for k in range(agents_count)], dtype=object)
+    agent_names = np.array([f"Agent {k+1}" for k in range(agents_num)], dtype=object)
 
     # Keep IDs as Python ints (object dtype)
-    agent_ids = np.empty(agents_count, dtype=object)
+    agent_ids = np.empty(agents_num, dtype=object)
     assigned_team_ids = team_ids[team_idx]  # dtype=object, no astype
 
     # --- add agents ---
-    for k in range(agents_count):
+    for k in range(agents_num):
         org.add_agent(name=str(agent_names[k]), team=assigned_team_ids[k])
         agent_id = org.search(str(agent_names[k]))
         if agent_id is None:
@@ -77,18 +77,18 @@ def generate(
     for t in team_ids:
         members = list(org.agents_from_team(t))
         for a, b in combinations(members, 2):
-            if rng.random() < agents_connectoion_probability_inside_team:
+            if rng.random() < agents_connection_probability_inside_team:
                 org.add_agent_connection(a, b)
 
     return org
 
 
 if __name__ == "__main__":
-    org = generate(
+    org = generate_random_organization_structure(
         seed=42,
-        teams_count=4,
-        agents_count=20,
-        agents_connectoion_probability_inside_team=0.5,
+        teams_num=4,
+        agents_num=20,
+        agents_connection_probability_inside_team=0.5,
         teams_connection_probability=0.3,
     )
     print(org.stat)

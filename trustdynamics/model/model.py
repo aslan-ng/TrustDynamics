@@ -1,9 +1,8 @@
-import numpy as np
-
 from trustdynamics.model.update import Update
 from trustdynamics.model.serialization import Serialization
 from trustdynamics.organization import Organization
 from trustdynamics.technology import Technology
+from trustdynamics.consensus import Degroot
 
 
 class Model(
@@ -56,6 +55,9 @@ class Model(
         # Technology
         self.technology = technology
         technology.model = self # binding
+
+        # Consensus
+        self.consensus = Degroot
         
     @property
     def step(self):

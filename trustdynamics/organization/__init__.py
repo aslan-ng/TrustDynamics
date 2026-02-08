@@ -1,1 +1,2 @@
 from .organization import Organization
+from .generate import generate_random_organization_structure

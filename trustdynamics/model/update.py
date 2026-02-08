@@ -91,11 +91,22 @@ class Update:
                 self.organization.set_team_opinion(team_id, float(self.organization.get_agent_opinion(only_agent)))
                 continue
             
-            # Run DeGroot to convergence
-            W, x0 = self.organization.agent_influence_and_opinions(team_id)
-            dg = Degroot(W)
-            res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
+            # Solve consensus
+            W, x0 = self.organization.agent_influence_and_opinions(agents)
+            consensus_model = self.consensus(W)
+            res = consensus_model.run_steps(
+                x0,
+                steps=3,
+                threshold=1e-6,
+                max_steps=10_000
+            )
             x_final = res["final_opinions"]
+
+            # Update agents opinion
+            for agent_id, x in zip(agents, x_final):
+                self.organization.set_agent_opinion(agent_id, float(x))
+            
+            # Form team opinion
             team_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
             self.organization.set_team_opinion(team_id, team_opinion)
 
@@ -106,10 +117,22 @@ class Update:
         Uses the same DeGroot consensus mechanism applied at the team layer.
         """
         # Run DeGroot to convergence
-        W, x0 = self.organization.team_influence_and_opinions()
-        dg = Degroot(W)
-        res = dg.run_steps(x0, steps=None, threshold=1e-6, max_steps=10_000)
-        x_final = res["final_opinions"]        
+        teams = list(self.organization.all_team_ids)
+        W, x0 = self.organization.team_influence_and_opinions(teams)
+        consensus_model = self.consensus(W)
+        res = consensus_model.run_steps(
+            x0,
+            steps=3,
+            threshold=1e-6,
+            max_steps=10_000
+        )
+        x_final = res["final_opinions"]
+
+        # Update teams opinion
+        for team_id, x in zip(teams, x_final):
+            self.organization.set_team_opinion(team_id, float(x))
+
+        # Form organization opinion      
         organization_opinion = float(x_final.mean()) # Aggregate to a single team opinion (robust choice)
         self.organization.set_organization_opinion(organization_opinion)
 
@@ -215,9 +238,19 @@ class Update:
         This decouples opinion change from social influence alone.
         """
         agents = self.organization.all_agent_ids
+
         for agent_id in agents:
+            current_opinion = self.organization.get_agent_opinion(agent_id)
+            
+            # Update exposure to technology
+            if self.organization.get_agent_exposure_to_technology(agent_id) is True and current_opinion < 0:
+                self.organization.set_agent_exposure_to_technology(agent_id, False)
+            if self.organization.get_agent_exposure_to_technology(agent_id) is False and current_opinion >= 0:
+                self.organization.set_agent_exposure_to_technology(agent_id, True)
+
+            # Technology impact
             if self.organization.get_agent_exposure_to_technology(agent_id) is True:
-                current_opinion = self.organization.get_agent_opinion(agent_id)
+                
                 tech_successful = self.technology.use(agent_id)
                 if tech_successful:
                     delta = self.organization.get_agent_technology_success_impact(agent_id)

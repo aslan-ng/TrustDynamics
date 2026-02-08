@@ -282,13 +282,11 @@ class Organization(
             raise ValueError("Agent must exist in the organization to set self_trust_learning_rate.")
         self.G_agents.nodes[agent_id]["self_trust_learning_rate"] = float(value)
 
-
     def get_agent_trust_learning_rate(self, agent: int | str) -> float:
         agent_id = self.search(agent)
         if agent_id is None:
             raise ValueError("Agent must exist in the organization to get trust_learning_rate.")
         return self.G_agents.nodes[agent_id].get("trust_learning_rate", 0.0)
-
 
     def set_agent_trust_learning_rate(self, agent: int | str, value: float) -> None:
         agent_id = self.search(agent)
@@ -296,13 +294,11 @@ class Organization(
             raise ValueError("Agent must exist in the organization to set trust_learning_rate.")
         self.G_agents.nodes[agent_id]["trust_learning_rate"] = float(value)
 
-
     def get_agent_homophily_normative_tradeoff(self, agent: int | str) -> float:
         agent_id = self.search(agent)
         if agent_id is None:
             raise ValueError("Agent must exist in the organization to get homophily_normative_tradeoff.")
         return self.G_agents.nodes[agent_id].get("homophily_normative_tradeoff", 0.5)
-
 
     def set_agent_homophily_normative_tradeoff(self, agent: int | str, value: float) -> None:
         agent_id = self.search(agent)
@@ -744,7 +740,7 @@ class Organization(
         
     def agent_influence_and_opinions(
             self,
-            team: int | str,
+            agents: list | tuple,
             *,
             history_index: int = -1,
         ) -> tuple[pd.DataFrame, pd.Series]:
@@ -763,8 +759,8 @@ class Organization(
 
         Parameters
         ----------
-        team : int | str
-            Team identifier or name.
+        agents : list | tuple
+            A list of agents ids or names.
         history_index : int, optional
             Index into trust/opinion histories. Defaults to ``-1`` (latest).
 
@@ -785,7 +781,9 @@ class Organization(
         The returned matrix is guaranteed to be row-stochastic (each row sums to 1),
         with isolated agents assigned ``self_weight_if_isolated=1.0``.
         """
-        agent_ids = sorted(self.agents_from_team(team))
+        agent_ids = []
+        for agent in agents:
+            agent_ids.append(self.search(agent))
 
         # --- Influence matrix ---
         W = pd.DataFrame(0.0, index=agent_ids, columns=agent_ids)
@@ -816,6 +814,7 @@ class Organization(
     
     def team_influence_and_opinions(
         self,
+        teams: list | tuple,
         *,
         history_index: int = -1,
     ) -> tuple[pd.DataFrame, pd.Series]:
@@ -854,7 +853,9 @@ class Organization(
         The returned matrix is guaranteed to be row-stochastic (each row sums to 1),
         with isolated teams assigned ``self_weight_if_isolated=1.0``.
         """
-        team_ids = sorted(list(self.all_team_ids))
+        team_ids = []
+        for team in teams:
+            team_ids.append(self.search(team))
 
         # --- Influence matrix ---
         W = pd.DataFrame(0.0, index=team_ids, columns=team_ids)
