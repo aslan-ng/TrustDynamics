@@ -305,6 +305,22 @@ class Organization(
         if agent_id is None:
             raise ValueError("Agent must exist in the organization to set homophily_normative_tradeoff.")
         self.G_agents.nodes[agent_id]["homophily_normative_tradeoff"] = float(value)
+
+    def get_agent_opinion_technology_use_cutoff(self, agent: int | str) -> float:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError(
+                "Agent must exist in the organization to get opinion_technology_use_cutoff."
+            )
+        return self.G_agents.nodes[agent_id].get("opinion_technology_use_cutoff", 0.0)
+
+    def set_agent_opinion_technology_use_cutoff(self, agent: int | str, value: float) -> None:
+        agent_id = self.search(agent)
+        if agent_id is None:
+            raise ValueError(
+                "Agent must exist in the organization to set opinion_technology_use_cutoff."
+            )
+        self.G_agents.nodes[agent_id]["opinion_technology_use_cutoff"] = float(value)
         
     # =========================
     # Team-level parameters

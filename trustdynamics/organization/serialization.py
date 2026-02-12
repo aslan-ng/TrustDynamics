@@ -111,6 +111,7 @@ class Serialization:
             "self_trust_learning_rate": 0.0,
             "trust_learning_rate": 0.0,
             "homophily_normative_tradeoff": 0.5,
+            "opinion_technology_use_cutoff": 0.0,
         }
 
         def _apply_defaults(G, defaults: dict):
@@ -120,7 +121,11 @@ class Serialization:
 
         def _coerce_types_team(attrs: dict):
             # Keep these as floats
-            for k in ("self_trust_learning_rate", "trust_learning_rate", "homophily_normative_tradeoff"):
+            for k in (
+                "self_trust_learning_rate",
+                "trust_learning_rate",
+                "homophily_normative_tradeoff",
+            ):
                 attrs[k] = float(attrs.get(k, 0.0))
             # opinions already list, leave contents as-is (you can coerce if needed)
 
@@ -131,6 +136,7 @@ class Serialization:
                 "self_trust_learning_rate",
                 "trust_learning_rate",
                 "homophily_normative_tradeoff",
+                "opinion_technology_use_cutoff",
             ):
                 attrs[k] = float(attrs.get(k, 0.0))
 

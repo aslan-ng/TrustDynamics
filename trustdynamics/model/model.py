@@ -43,20 +43,18 @@ class Model(
 
         technology : Technology
             Technology that agents use.
-            
-        seed : int or None, optional
-            Seed used to initialize the model RNG. If None, randomness is not seeded.
-            The same RNG is passed into initialization routines to ensure end-to-end
-            reproducibility across opinion sampling and stochastic technology outcomes.
+
+        consensus :
+            consensus model.
         """
-        # Organization
+        # Organization Model
         self.organization = organization
 
-        # Technology
+        # Technology Model
         self.technology = technology
         technology.model = self # binding
 
-        # Consensus
+        # Consensus Model
         self.consensus = Degroot
         
     @property

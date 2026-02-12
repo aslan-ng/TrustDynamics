@@ -2,8 +2,6 @@ import numpy as np
 from tqdm import tqdm
 from copy import deepcopy
 
-from trustdynamics.consensus import Degroot
-
 
 class Update:
     """
@@ -233,8 +231,11 @@ class Update:
 
         for agent_id in agents:
             current_opinion = self.organization.get_agent_opinion(agent_id)
+            cutoff = self.organization.get_agent_opinion_technology_use_cutoff(agent_id)
             
-            if current_opinion >= 0: # technology impact
+            if current_opinion < cutoff: # stay dormant
+                new_opinion = deepcopy(current_opinion)
+            else: # technology impact
                 tech_successful = self.technology.use(agent_id)
                 if tech_successful:
                     delta = self.organization.get_agent_technology_success_impact(agent_id)
@@ -242,7 +243,5 @@ class Update:
                 else:
                     delta = self.organization.get_agent_technology_failure_impact(agent_id)
                     new_opinion = max(current_opinion + delta, -1.0)
-            else: # stay dormant
-                new_opinion = deepcopy(current_opinion)
 
             self.organization.set_agent_opinion(agent_id, new_opinion, mode="append")
