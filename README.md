@@ -14,3 +14,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
+
+<div align="center">
+    <img src="https://github.com/aslan-ng/TrustDynamics/blob/main/assets/organization.jpg" alt="Organization" width="520">
+    </br>
+    <em>
+        Illustration by Viktoria Kurpas
+    </em>
+</div>
