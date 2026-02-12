@@ -10,6 +10,7 @@
 <div align="center">
 
 ![Python Version](https://img.shields.io/badge/Python-≥3.11-blue)
+[![PyPI Version](https://img.shields.io/pypi/v/trustdynamics?label=PyPI)](https://pypi.org/project/trustdynamics/)
 [![GitHub](https://img.shields.io/badge/GitHub-30363f?logo=github&logoColor=white)](https://github.com/aslan-ng/TrustDynamics)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
