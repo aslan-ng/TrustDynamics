@@ -111,7 +111,7 @@ class Serialization:
             "self_trust_learning_rate": 0.0,
             "trust_learning_rate": 0.0,
             "homophily_normative_tradeoff": 0.5,
-            "opinion_technology_use_cutoff": 0.0,
+            "technology_use_cutoff_opinion": 0.0,
         }
 
         def _apply_defaults(G, defaults: dict):
@@ -136,7 +136,7 @@ class Serialization:
                 "self_trust_learning_rate",
                 "trust_learning_rate",
                 "homophily_normative_tradeoff",
-                "opinion_technology_use_cutoff",
+                "technology_use_cutoff_opinion",
             ):
                 attrs[k] = float(attrs.get(k, 0.0))
 
