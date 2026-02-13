@@ -1682,7 +1682,7 @@
           "self_trust_learning_rate": 0.1,
           "trust_learning_rate": 0.1,
           "homophily_normative_tradeoff": 0.5,
-          "opinion_technology_use_cutoff": 0.0,
+          "technology_use_cutoff_opinion": 0.0,
           "id": 3
         },
         {
@@ -1896,7 +1896,7 @@
           "self_trust_learning_rate": 0.1,
           "trust_learning_rate": 0.1,
           "homophily_normative_tradeoff": 0.5,
-          "opinion_technology_use_cutoff": 0.0,
+          "technology_use_cutoff_opinion": 0.0,
           "id": 4
         },
         {
@@ -2110,7 +2110,7 @@
           "self_trust_learning_rate": 0.1,
           "trust_learning_rate": 0.1,
           "homophily_normative_tradeoff": 0.5,
-          "opinion_technology_use_cutoff": 0.0,
+          "technology_use_cutoff_opinion": 0.0,
           "id": 5
         },
         {
@@ -2324,7 +2324,7 @@
           "self_trust_learning_rate": 0.1,
           "trust_learning_rate": 0.1,
           "homophily_normative_tradeoff": 0.5,
-          "opinion_technology_use_cutoff": 0.0,
+          "technology_use_cutoff_opinion": 0.0,
           "id": 6
         },
         {
@@ -2538,7 +2538,7 @@
           "self_trust_learning_rate": 0.1,
           "trust_learning_rate": 0.1,
           "homophily_normative_tradeoff": 0.5,
-          "opinion_technology_use_cutoff": 0.0,
+          "technology_use_cutoff_opinion": 0.0,
           "id": 7
         }
       ],

@@ -231,7 +231,7 @@ class Update:
 
         for agent_id in agents:
             current_opinion = self.organization.get_agent_opinion(agent_id)
-            cutoff = self.organization.get_agent_opinion_technology_use_cutoff(agent_id)
+            cutoff = self.organization.get_agent_technology_use_cutoff_opinion(agent_id)
             
             if current_opinion < cutoff: # stay dormant
                 new_opinion = deepcopy(current_opinion)
