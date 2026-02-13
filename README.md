@@ -17,7 +17,7 @@
 </div>
 
 <div align="center">
-    <img src="https://github.com/aslan-ng/TrustDynamics/blob/main/assets/organization.jpg" alt="Organization" width="520">
+    <img src="https://raw.githubusercontent.com/aslan-ng/TrustDynamics/refs/heads/main/assets/organization.jpg" alt="Organization" width="520">
     </br>
     <em>
         Illustration by Viktoria Kurpas

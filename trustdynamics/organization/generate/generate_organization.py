@@ -9,6 +9,7 @@ def generate_random_organization_structure(
     agents_num: int,
     agents_connection_probability_inside_team: float,
     teams_connection_probability: float,
+    technology_use_cutoff_opinion: float = 0.0,
     seed: int | np.random.Generator | None = None,
 ) -> Organization:
     """
@@ -67,7 +68,11 @@ def generate_random_organization_structure(
 
     # --- add agents ---
     for k in range(agents_num):
-        org.add_agent(name=str(agent_names[k]), team=assigned_team_ids[k])
+        org.add_agent(
+            name=str(agent_names[k]),
+            team=assigned_team_ids[k],
+            technology_use_cutoff_opinion=technology_use_cutoff_opinion,
+        )
         agent_id = org.search(str(agent_names[k]))
         if agent_id is None:
             raise RuntimeError(f"Failed to resolve agent id for {agent_names[k]}.")

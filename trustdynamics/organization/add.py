@@ -105,7 +105,7 @@ class Add:
             self_trust_learning_rate: float = 0.1,
             trust_learning_rate: float = 0.1,
             homophily_normative_tradeoff: float = 0.5,
-            opinion_technology_use_cutoff: float = 0.0,
+            technology_use_cutoff_opinion: float = 0.0,
         ) -> int:
         """
         Add a new agent to an existing team.
@@ -150,7 +150,7 @@ class Add:
             Convex mixing weight in [0, 1] for agent-level neighbor trust updates:
             - 1.0 → purely homophily-driven (agent↔neighbor agreement)
             - 0.0 → purely normative (neighbor↔team alignment)
-        opinion_technology_use_cutoff : float, optional
+        technology_use_cutoff_opinion : float, optional
             If agent's opinions is less than this point, they will refuse to use the technology anymore.
 
         Returns
@@ -186,8 +186,8 @@ class Add:
         if homophily_normative_tradeoff < 0.0 or homophily_normative_tradeoff > 1.0:
             raise ValueError("homophily_normative_tradeoff must be between 0.0 and 1.0")
         
-        if opinion_technology_use_cutoff < -1.0 or opinion_technology_use_cutoff > 1.0:
-            raise ValueError("opinion_technology_use_cutoff must be between 0.0 and 1.0")
+        if technology_use_cutoff_opinion < -1.0 or technology_use_cutoff_opinion > 1.0:
+            raise ValueError("technology_use_cutoff_opinion must be between 0.0 and 1.0")
 
         if not self._is_name_unique(name):
             raise ValueError(f"Agent name must be unique in the organization. '{name}' already exists.")
@@ -218,7 +218,7 @@ class Add:
             self_trust_learning_rate=self_trust_learning_rate,
             trust_learning_rate=trust_learning_rate,
             homophily_normative_tradeoff=homophily_normative_tradeoff,
-            opinion_technology_use_cutoff=opinion_technology_use_cutoff
+            technology_use_cutoff_opinion=technology_use_cutoff_opinion
         )
 
         if initial_self_trust is not None:
