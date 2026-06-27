@@ -631,10 +631,17 @@ class Organization(
         except IndexError:
             return None
     
-    def set_agent_trust(self, agent_1: int | str, agent_2: int | str, trust: float):
+    def set_agent_trust(
+        self,
+        agent_1: int | str,
+        agent_2: int | str,
+        trust: float,
+        *,
+        mode: str = "append",  # "append" or "overwrite"
+    ):
         """
-        Append a trust value from one agent to another.
-
+        Set trust from one agent to another.
+        
         Parameters
         ----------
         agent_1 : int | str
@@ -642,22 +649,30 @@ class Organization(
         agent_2 : int | str
             Target agent identifier or name (trustee).
         trust : float
-            Trust value to append.
-
-        Raises
-        ------
-        ValueError
-            If either agent does not exist or no edge exists between them.
+            Trust value.
+        mode : {"append", "overwrite"}
+            - "append": add as a new time step.
+            - "overwrite": replace the most recent value.
         """
         trust = float(trust)
         agent_1_id = self.search(agent_1)
         agent_2_id = self.search(agent_2)
+
         if agent_1_id is None or agent_2_id is None:
-            raise ValueError("Both agents must exist in the organization to get trust value.")
-        if self.G_agents.has_edge(agent_1_id, agent_2_id):
-            self.G_agents.edges[agent_1_id, agent_2_id]["trusts"].append(trust)
-        else:
+            raise ValueError("Both agents must exist in the organization to set trust value.")
+        if not self.G_agents.has_edge(agent_1_id, agent_2_id):
             raise ValueError("No connection exists between the specified agents.")
+
+        history = self.G_agents.edges[agent_1_id, agent_2_id]["trusts"]
+
+        if mode == "append":
+            history.append(trust)
+        elif mode == "overwrite":
+            if len(history) == 0:
+                raise ValueError("Cannot overwrite trust history because it is empty.")
+            history[-1] = trust
+        else:
+            raise ValueError("mode must be 'append' or 'overwrite'")
         
     def get_agent_trust_history(self, agent_1: int | str, agent_2: int | str) -> list:
         """
