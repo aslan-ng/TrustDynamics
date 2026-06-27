@@ -1,65 +1,30 @@
-from itertools import product
-
 from task import Task
 
 
 class Workflow:
 
-    def __init__(
-        self,
-    ):
+    def __init__(self):
         self.tasks: dict[str, Task] = {}
+
+    def add_task(self, task: Task) -> None:
+        if task.name in self.tasks:
+            raise ValueError(f"Task name '{task.name}' already exists.")
+        self.tasks[task.name] = task
 
     @property
     def task_names(self) -> set[str]:
         return set(self.tasks)
 
-    def add_task(self, task: Task):
-        """
-        Add a new task.
-        """
-        if task.name in self.tasks:
-            raise ValueError(f"Task name '{task.name}' already exists.")
-        self.tasks[task.name] = task
-    
-    @property
-    def completed_tasks(self) -> set[str]:
-        """
-        A list of completed tasks names.
-        """
-        return {
-            task.name
-            for task in self.tasks.values()
-            if task.done
-        }
-    
-    @property
-    def incomplete_tasks(self) -> set[str]:
-        """
-        A list of all incomplete tasks names.
-        """
-        return {
-            task.name
-            for task in self.tasks.values()
-            if not task.done
-        }
-    
     @property
     def first(self) -> set[str]:
-        """
-        First tasks names in the workflow.
-        """
         return {
             task.name
             for task in self.tasks.values()
             if not task.prerequisite_sets
         }
-    
+
     @property
     def last(self) -> set[str]:
-        """
-        Last tasks names in the workflow.
-        """
         prerequisite_tasks = set()
 
         for task in self.tasks.values():
@@ -71,175 +36,164 @@ class Workflow:
             for task in self.tasks.values()
             if task.name not in prerequisite_tasks
         }
-    
+
     @property
-    def available_tasks(self) -> set[str]:
-        """
-        Tasks names that are available.
-        """
-        result = set()
-
-        completed = self.completed_tasks
-        incomplete_tasks = self.incomplete_tasks
-
-        for task_name in incomplete_tasks:
-            task = self.tasks[task_name]
-
-            if not task.prerequisite_sets:
-                result.add(task.name)
-                continue
-
-            for prerequisite_set in task.prerequisite_sets:
-                if all(
-                    prerequisite in completed
-                    for prerequisite in prerequisite_set
-                ):
-                    result.add(task.name)
-                    break
-
-        return result
-    
-    def possible_execution_plans(
-        self,
-        start_tasks: set[str] | None = None,
-        target_tasks: set[str] | None = None,
-    ) -> list[list[set[str]]]:
-        """
-        Return possible staged execution plans.
-
-        Return type:
-            list[list[set[str]]]
-
-        Meaning:
-            outer list = alternative plans
-            inner list = sequential stages
-            set[str] = tasks that can be done in parallel in that stage
-        """
-
-        completed = self.completed_tasks
-
-        if start_tasks is None:
-            start_tasks = self.available_tasks
-
-        if target_tasks is None:
-            target_tasks = self.last
-
-        def clean_plan(plan: list[set[str]]) -> list[set[str]]:
-            """
-            Remove completed tasks and duplicate tasks from later stages.
-            """
-            seen = set(completed)
-            cleaned = []
-
-            for stage in plan:
-                new_stage = {
-                    task_name
-                    for task_name in stage
-                    if task_name not in seen
-                }
-
-                if new_stage:
-                    cleaned.append(new_stage)
-                    seen.update(new_stage)
-
-            return cleaned
-
-        def merge_parallel_plans(plans: tuple[list[set[str]], ...]) -> list[set[str]]:
-            """
-            Merge multiple prerequisite plans into staged parallel execution.
-            """
-            if not plans:
-                return []
-
-            max_length = max(len(plan) for plan in plans)
-            merged = []
-
-            for i in range(max_length):
-                stage = set()
-
-                for plan in plans:
-                    if i < len(plan):
-                        stage.update(plan[i])
-
-                if stage:
-                    merged.append(stage)
-
-            return clean_plan(merged)
-
-        def plans_to_complete(task_name: str) -> list[list[set[str]]]:
-            """
-            Return all possible staged plans needed to complete one task.
-            """
-            if task_name not in self.tasks:
-                raise ValueError(f"Unknown task: {task_name}")
-
-            if task_name in completed:
-                return [[]]
-
-            task = self.tasks[task_name]
-
-            if task_name in start_tasks:
-                return [[{task_name}]]
-
-            if not task.prerequisite_sets:
-                return [[{task_name}]]
-
-            result = []
-
-            for prerequisite_set in task.prerequisite_sets:
-                prerequisite_plans_options = [
-                    plans_to_complete(prerequisite)
-                    for prerequisite in prerequisite_set
-                    if prerequisite not in completed
-                ]
-
-                if not prerequisite_plans_options:
-                    result.append([{task_name}])
-                    continue
-
-                for prerequisite_plan_combination in product(*prerequisite_plans_options):
-                    merged_prerequisite_plan = merge_parallel_plans(
-                        prerequisite_plan_combination
-                    )
-
-                    full_plan = merged_prerequisite_plan + [{task_name}]
-                    result.append(clean_plan(full_plan))
-
-            return result
-
-        target_plan_options = [
-            plans_to_complete(target_task)
-            for target_task in target_tasks
-        ]
-
-        all_plans = []
-
-        for target_plan_combination in product(*target_plan_options):
-            merged_plan = merge_parallel_plans(target_plan_combination)
-            all_plans.append(clean_plan(merged_plan))
-
-        return all_plans
-    
-    @property
-    def summary(self):
-        """
-        Stat of the workflow.
-        """
+    def summary(self) -> dict:
         return {
             "All tasks": self.task_names,
             "First tasks": self.first,
             "Last tasks": self.last,
-            "Completed tasks": self.completed_tasks,
-            "Incomplete tasks": self.incomplete_tasks,
         }
 
-                
+
+    def draw(self) -> None:
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
+        graph = nx.DiGraph()
+
+        # Add task nodes
+        for task_name in self.task_names:
+            graph.add_node(
+                task_name,
+                kind="task",
+                label=task_name,
+            )
+
+        # Add explicit AND nodes.
+        # OR is represented by multiple incoming alternatives to the same task.
+        for task in self.tasks.values():
+            for i, prerequisite_set in enumerate(task.prerequisite_sets):
+                if len(prerequisite_set) == 1:
+                    graph.add_edge(prerequisite_set[0], task.name)
+                    continue
+
+                and_node = f"{task.name}__AND_{i + 1}"
+
+                graph.add_node(
+                    and_node,
+                    kind="and",
+                    label="AND",
+                )
+
+                for prerequisite in prerequisite_set:
+                    graph.add_edge(prerequisite, and_node)
+
+                graph.add_edge(and_node, task.name)
+
+        # Compute task layers: first tasks on the left, last tasks on the right
+        task_layers: dict[str, int] = {}
+
+        def get_task_layer(task_name: str) -> int:
+            if task_name in task_layers:
+                return task_layers[task_name]
+
+            task = self.tasks[task_name]
+
+            if not task.prerequisite_sets:
+                task_layers[task_name] = 0
+                return 0
+
+            prerequisites = {
+                prerequisite
+                for prerequisite_set in task.prerequisite_sets
+                for prerequisite in prerequisite_set
+            }
+
+            task_layers[task_name] = 1 + max(
+                get_task_layer(prerequisite)
+                for prerequisite in prerequisites
+            )
+
+            return task_layers[task_name]
+
+        for task_name in self.task_names:
+            get_task_layer(task_name)
+
+        # Assign graph layers
+        node_layers = {}
+
+        for node, data in graph.nodes(data=True):
+            if data["kind"] == "task":
+                node_layers[node] = task_layers[node] * 2
+            else:
+                successor = next(graph.successors(node))
+                node_layers[node] = task_layers[successor] * 2 - 1
+
+        # Deterministic manual positions
+        nodes_by_layer: dict[int, list[str]] = {}
+
+        for node, layer in node_layers.items():
+            nodes_by_layer.setdefault(layer, []).append(node)
+
+        pos = {}
+
+        for layer, nodes in nodes_by_layer.items():
+            nodes = sorted(nodes)
+
+            y_start = (len(nodes) - 1) / 2
+
+            for i, node in enumerate(nodes):
+                pos[node] = (layer, y_start - i)
+
+        labels = {
+            node: data["label"]
+            for node, data in graph.nodes(data=True)
+        }
+
+        task_nodes = [
+            node
+            for node, data in graph.nodes(data=True)
+            if data["kind"] == "task"
+        ]
+
+        and_nodes = [
+            node
+            for node, data in graph.nodes(data=True)
+            if data["kind"] == "and"
+        ]
+
+        nx.draw_networkx_nodes(
+            graph,
+            pos,
+            nodelist=task_nodes,
+            node_size=2200,
+            node_shape="o",
+        )
+
+        nx.draw_networkx_nodes(
+            graph,
+            pos,
+            nodelist=and_nodes,
+            node_size=900,
+            node_shape="s",
+            node_color="orange",
+        )
+
+        nx.draw_networkx_labels(
+            graph,
+            pos,
+            labels=labels,
+        )
+
+        nx.draw_networkx_edges(
+            graph,
+            pos,
+            arrows=True,
+            arrowstyle="-|>",
+            arrowsize=20,
+            connectionstyle="arc3,rad=0.05",
+        )
+
+        plt.axis("off")
+        plt.tight_layout()
+        plt.show()
+    
 
 if __name__ == "__main__":
 
     from pprint import pprint
-    from example_2 import workflow
+    from trustdynamics.work.examples.example_2 import workflow
 
-    print("Step 0:")
-    pprint(workflow.possible_execution_plans())
-
+    pprint(workflow.summary)
+    workflow.draw()
