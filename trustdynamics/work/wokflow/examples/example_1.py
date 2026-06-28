@@ -1,5 +1,9 @@
-from task import Task
-from workflow import Workflow
+"""
+Simple linear tasks.
+"""
+
+from trustdynamics.work.wokflow.task import Task
+from trustdynamics.work.wokflow.workflow import Workflow
 
 
 t1 = Task(
@@ -11,18 +15,11 @@ t2 = Task(
 )
 t3 = Task(
     name="Task 3",
-    prerequisite_sets=[["Task 1"]],
+    prerequisite_sets=[["Task 2"]],
 )
 t4 = Task(
     name="Task 4",
-    prerequisite_sets=[["Task 1"]],
-)
-t5 = Task(
-    name="Task 5",
-    prerequisite_sets=[
-        ["Task 2", "Task 3"],
-        ["Task 4"],
-    ]
+    prerequisite_sets=[["Task 3"]],
 )
 
 workflow = Workflow()
@@ -30,4 +27,7 @@ workflow.add_task(task=t1)
 workflow.add_task(task=t2)
 workflow.add_task(task=t3)
 workflow.add_task(task=t4)
-workflow.add_task(task=t5)
+
+
+if __name__ == "__main__":
+    workflow.show()

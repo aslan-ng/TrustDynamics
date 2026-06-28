@@ -1,4 +1,4 @@
-from task import Task
+from trustdynamics.work.wokflow.task import Task
 
 
 class Workflow:
@@ -46,7 +46,7 @@ class Workflow:
         }
 
 
-    def draw(self) -> None:
+    def show(self) -> None:
         import matplotlib.pyplot as plt
         import networkx as nx
 
@@ -193,7 +193,7 @@ class Workflow:
 if __name__ == "__main__":
 
     from pprint import pprint
-    from trustdynamics.work.examples.example_2 import workflow
+    from trustdynamics.work.wokflow.examples.example_2 import workflow
 
     pprint(workflow.summary)
-    workflow.draw()
+    workflow.show()

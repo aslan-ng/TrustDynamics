@@ -362,7 +362,7 @@ class Organization(
             raise ValueError("Team must exist in the organization to set homophily_normative_tradeoff.")
         self.G_teams.nodes[team_id]["homophily_normative_tradeoff"] = float(value)
     
-    def get_agent_opinion(self, agent: int | str, history_index: int = -1) -> float:
+    def get_agent_opinion(self, agent: int | str, history_index: int = -1) -> float | None:
         """
         Return an agent's opinion value at a given history index.
 
@@ -458,7 +458,7 @@ class Organization(
             raise ValueError("Agent must exist in the organization to get opinion.")
         return self.G_agents.nodes[agent_id].get("opinions", [])
 
-    def get_team_opinion(self, team: int | str, history_index: int = -1) -> float:
+    def get_team_opinion(self, team: int | str, history_index: int = -1) -> float | None:
         """
         Return a team's opinion value at a given history index.
 
@@ -598,7 +598,7 @@ class Organization(
         """
         return self.opinions
     
-    def get_agent_trust(self, agent_1: int | str, agent_2: int | str, history_index: int = -1) -> float:
+    def get_agent_trust(self, agent_1: int | str, agent_2: int | str, history_index: int = -1) -> float | None:
         """
         Return the trust value from one agent to another at a given history index.
 
@@ -704,7 +704,7 @@ class Organization(
         else:
             raise ValueError("No connection exists between the specified agents.")
 
-    def get_team_trust(self, team_1: int | str, team_2: int | str, history_index: int = -1) -> list:
+    def get_team_trust(self, team_1: int | str, team_2: int | str, history_index: int = -1) -> list | None:
         """
         Return the trust value from one team to another at a given history index.
 
