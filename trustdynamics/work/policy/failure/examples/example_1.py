@@ -1,5 +1,5 @@
 """
-Failure policy for workflow example_a
+Failure policy for workflow example_1
 """
 
 from trustdynamics.work.policy.failure.failure import FailurePolicy

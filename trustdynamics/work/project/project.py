@@ -8,7 +8,7 @@ class Project:
     def __init__(
         self,
         workflow: Workflow,
-        review_policy: dict[str, ReviewPolicy] | None = None,
+        review_policy: set[ReviewPolicy] | None = None,
         failure_policy: dict[str, FailurePolicy] | None = None,
     ):
         self.workflow = workflow
