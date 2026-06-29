@@ -37,3 +37,12 @@ class FailurePolicy:
             )
 
         self.transitions = transitions
+
+
+if __name__ == "__main__":
+    task_failure_policy = FailurePolicy(
+        transitions={
+            "Task 1": 0.5,
+            "Task 3": 0.5,
+        }
+    )

@@ -2,7 +2,6 @@ class ReviewPolicy:
 
     def __init__(
         self,
-        task: str,
         reviewers: set[int] | None = None,          # None means all eligible reviewers
         exclude_reviewers: set[int] | None = None,  # Excluded from reviewers
         minimum_reviews: int = 1,                   # Minimum completed reviews required
@@ -19,7 +18,6 @@ class ReviewPolicy:
                     "score_threshold must be between 0 and 1."
                 )
 
-        self.task = task
         self.reviewers = reviewers
         self.exclude_reviewers = exclude_reviewers or set()
         self.minimum_reviews = minimum_reviews
@@ -27,8 +25,7 @@ class ReviewPolicy:
 
 
 if __name__ == "__main__":
-    review_policy = ReviewPolicy(
-        task="Task 1",
+    task_review_policy = ReviewPolicy(
         reviewers={1, 2, 3},
         exclude_reviewers=None,
         minimum_reviews=2,

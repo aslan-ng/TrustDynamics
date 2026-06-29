@@ -1,7 +1,7 @@
 from enum import Enum
 import random
 
-from trustdynamics.work.wokflow.workflow import Workflow
+from trustdynamics.work.workflow.workflow import Workflow
 
 
 class TaskStatus(Enum):

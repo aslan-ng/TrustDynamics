@@ -1,4 +1,4 @@
-from trustdynamics.work.wokflow.workflow import Workflow
+from trustdynamics.work.workflow.workflow import Workflow
 from trustdynamics.work.policy.review.review import ReviewPolicy
 from trustdynamics.work.policy.failure.failure import FailurePolicy
 
@@ -8,36 +8,35 @@ class Project:
     def __init__(
         self,
         workflow: Workflow,
-        review_policy: set[ReviewPolicy] | None = None,
         failure_policy: dict[str, FailurePolicy] | None = None,
+        review_policy: dict[str, ReviewPolicy] | None = None,
     ):
         self.workflow = workflow
 
-        self.review_policy = review_policy or {}
         self.failure_policy = failure_policy or {}
+        self.review_policy = review_policy or {}
+        self._validate_policies()
 
         self.selected_plan: list[set[str]] | None = None
 
-    def possible_plans(self) -> list[list[set[str]]]:
-        """
-        Return structurally possible staged plans.
-
-        outer list = alternative plans
-        inner list = sequential stages
-        set[str] = parallel tasks in that stage
-        """
-        return self._plans_to_complete_targets(
-            target_tasks=self.workflow.last,
-        )
-
-    def choose_plan(self, plan: list[set[str]]) -> None:
-        possible_plans = self.possible_plans()
-
-        if plan not in possible_plans:
-            raise ValueError("Selected plan is not one of the possible plans.")
-
-        self.selected_plan = plan
-
+    def _validate_policies(self) -> None:
+        for task_name in self.review_policy:
+            if task_name not in self.workflow.tasks:
+                raise ValueError(
+                    f"Review policy refers to unknown task: {task_name}"
+                )
+        for failed_task, policy in self.failure_policy.items():
+            if failed_task not in self.workflow.tasks:
+                raise ValueError(
+                    f"Failure policy refers to unknown task: {failed_task}"
+                )
+            for return_task in policy.transitions:
+                if return_task not in self.workflow.tasks:
+                    raise ValueError(
+                        f"Failure policy for task '{failed_task}' "
+                        f"returns to unknown task: {return_task}"
+                    )
+    
     def _plans_to_complete_targets(
         self,
         target_tasks: set[str],
@@ -116,6 +115,21 @@ class Project:
                 seen.update(stage)
 
         return merged
+    
+    def possible_plans(self) -> list[list[set[str]]]:
+        return self._plans_to_complete_targets(
+            target_tasks=self.workflow.last,
+        )
+
+    def choose_plan(self, plan: list[set[str]]) -> None:
+        possible_plans = self.possible_plans()
+
+        if plan not in possible_plans:
+            raise ValueError(
+                "Selected plan is not one of the possible plans."
+            )
+
+        self.selected_plan = plan
 
     @property
     def summary(self) -> dict:
@@ -127,3 +141,23 @@ class Project:
             "Failure policy tasks": set(self.failure_policy),
             "Selected plan": self.selected_plan,
         }
+
+
+
+if __name__ == "__main__":
+    from pprint import pprint
+
+    from trustdynamics.work.workflow.examples.example_1 import workflow
+    from trustdynamics.work.policy.failure.examples.example_1 import failure_policy
+    from trustdynamics.work.policy.review.examples.example_1 import review_policy
+
+    project = Project(
+        workflow=workflow,
+        failure_policy=failure_policy,
+        review_policy=review_policy,
+    )
+    possible_plans = project.possible_plans()
+    plan = possible_plans[0]
+    project.choose_plan(plan)
+
+    pprint(project.summary, sort_dicts=False)

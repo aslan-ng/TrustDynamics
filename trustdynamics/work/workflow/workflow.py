@@ -1,4 +1,4 @@
-from trustdynamics.work.wokflow.task import Task
+from trustdynamics.work.workflow.task import Task
 
 
 class Workflow:
@@ -193,7 +193,7 @@ class Workflow:
 if __name__ == "__main__":
 
     from pprint import pprint
-    from trustdynamics.work.wokflow.examples.example_2 import workflow
+    from trustdynamics.work.workflow.examples.example_2 import workflow
 
     pprint(workflow.summary)
     workflow.show()

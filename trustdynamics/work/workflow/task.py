@@ -8,9 +8,13 @@ class Task:
         self.name = name  # Used as the stable task identifier
         self.prerequisite_sets = prerequisite_sets or []  # Default: no prerequisite tasks
 
+    def __str__(self):
+        return self.name
+
 
 if __name__ == "__main__":
     task = Task(
         name="Design",
         prerequisite_sets=None,
     )
+    print(task)

@@ -6,18 +6,15 @@ from trustdynamics.work.policy.review.review import ReviewPolicy
 
 
 review_policy = {
-    ReviewPolicy(
-        task="Task 1",
+    "Task 1": ReviewPolicy(
         reviewers={1},
         exclude_reviewers=None,
-        minimum_reviews=2,
         score_threshold=None,
     ),
-    ReviewPolicy(
-        task="Task 4",
+    "Task 4": ReviewPolicy(
         reviewers={1, 2},
         exclude_reviewers=None,
-        minimum_reviews=2,
+        minimum_reviews=1,
         score_threshold=None,
     ),
 }
