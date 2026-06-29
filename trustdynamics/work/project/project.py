@@ -1,4 +1,5 @@
 from trustdynamics.work.workflow.workflow import Workflow
+from trustdynamics.work.policy.assignment.assignment import AssignmentPolicy
 from trustdynamics.work.policy.review.review import ReviewPolicy
 from trustdynamics.work.policy.failure.failure import FailurePolicy
 
@@ -8,10 +9,12 @@ class Project:
     def __init__(
         self,
         workflow: Workflow,
+        assignment_policy: dict[str, AssignmentPolicy] | None = None,
         failure_policy: dict[str, FailurePolicy] | None = None,
         review_policy: dict[str, ReviewPolicy] | None = None,
     ):
         self.workflow = workflow
+        self.assignment_policy = assignment_policy or {}
 
         self.failure_policy = failure_policy or {}
         self.review_policy = review_policy or {}
@@ -20,6 +23,11 @@ class Project:
         self.selected_plan: list[set[str]] | None = None
 
     def _validate_policies(self) -> None:
+        for task_name in self.assignment_policy:
+            if task_name not in self.workflow.tasks:
+                raise ValueError(
+                    f"Assignment policy refers to unknown task: {task_name}"
+                )
         for task_name in self.review_policy:
             if task_name not in self.workflow.tasks:
                 raise ValueError(
@@ -137,6 +145,7 @@ class Project:
             "Tasks": self.workflow.task_names,
             "First tasks": self.workflow.first,
             "Last tasks": self.workflow.last,
+            "Assignment policy tasks": set(self.assignment_policy),
             "Review policy tasks": set(self.review_policy),
             "Failure policy tasks": set(self.failure_policy),
             "Selected plan": self.selected_plan,
@@ -148,11 +157,13 @@ if __name__ == "__main__":
     from pprint import pprint
 
     from trustdynamics.work.workflow.examples.example_1 import workflow
+    from trustdynamics.work.policy.assignment.examples.example_1 import assignment_policy
     from trustdynamics.work.policy.failure.examples.example_1 import failure_policy
     from trustdynamics.work.policy.review.examples.example_1 import review_policy
 
     project = Project(
         workflow=workflow,
+        assignment_policy=assignment_policy,
         failure_policy=failure_policy,
         review_policy=review_policy,
     )

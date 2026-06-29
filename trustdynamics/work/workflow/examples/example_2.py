@@ -1,5 +1,5 @@
-from trustdynamics.work.wokflow.task import Task
-from trustdynamics.work.wokflow.workflow import Workflow
+from trustdynamics.work.workflow.task import Task
+from trustdynamics.work.workflow.workflow import Workflow
 
 
 t1 = Task(

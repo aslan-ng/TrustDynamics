@@ -1,5 +1,5 @@
 """
-Review policy for workflow example_1
+Review policy for workflow example_2
 """
 
 from trustdynamics.work.policy.review.review import ReviewPolicy

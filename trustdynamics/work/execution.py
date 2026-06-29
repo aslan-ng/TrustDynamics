@@ -1,231 +1,393 @@
-from enum import Enum
-import random
-
-from trustdynamics.work.workflow.workflow import Workflow
-
-
-class TaskStatus(Enum):
-    NOT_STARTED = "not_started"
-    IN_PROGRESS = "in_progress"
-    UNDER_REVIEW = "under_review"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
+from trustdynamics.work.project.project import Project
 
 
 class Execution:
 
-    def __init__(
-        self,
-        workflow: Workflow,
-        failure_policy: dict[str, dict[str, float]] | None = None,
-    ):
-        self.workflow = workflow
+    def __init__(self, project: Project):
+        if project.selected_plan is None:
+            raise ValueError("Project must have a selected plan.")
 
-        self.task_statuses: dict[str, TaskStatus] = {
-            task_name: TaskStatus.NOT_STARTED
-            for task_name in workflow.task_names
+        self.project = project
+        self.plan = project.selected_plan
+
+        self.task_status = {
+            task_name: "remaining"
+            for task_name in self.project.workflow.tasks
         }
 
-        self.failure_policy = failure_policy or {
-            task_name: {task_name: 1.0}
-            for task_name in workflow.task_names
+        self.review_scores: dict[str, dict[int, float]] = {
+            task_name: {}
+            for task_name in self.project.review_policy
         }
 
-        self.history: list[dict] = []
+        self._update_ready_tasks()
+        self.state = {}
+        self._update_state()
 
-    @property
-    def accepted_tasks(self) -> set[str]:
-        return {
-            task_name
-            for task_name, status in self.task_statuses.items()
-            if status == TaskStatus.ACCEPTED
+    def _update_ready_tasks(self) -> None:
+        completed_tasks = {
+            task
+            for task, status in self.task_status.items()
+            if status == "completed"
         }
 
-    @property
-    def incomplete_tasks(self) -> set[str]:
-        return self.workflow.task_names - self.accepted_tasks
-
-    @property
-    def available_tasks(self) -> set[str]:
-        result = set()
-
-        for task_name in self.incomplete_tasks:
-            status = self.task_statuses[task_name]
-
-            if status not in {
-                TaskStatus.NOT_STARTED,
-                TaskStatus.REJECTED,
-            }:
+        for task_name, task in self.project.workflow.tasks.items():
+            if self.task_status[task_name] != "remaining":
                 continue
 
-            task = self.workflow.tasks[task_name]
-
             if not task.prerequisite_sets:
-                result.add(task_name)
+                self.task_status[task_name] = "ready"
                 continue
 
             for prerequisite_set in task.prerequisite_sets:
-                if all(
-                    prerequisite in self.accepted_tasks
-                    for prerequisite in prerequisite_set
-                ):
-                    result.add(task_name)
+                if set(prerequisite_set).issubset(completed_tasks):
+                    self.task_status[task_name] = "ready"
                     break
 
-        return result
+    @property
+    def startable_tasks(self) -> set[str]:
+        return {
+            task
+            for task, status in self.task_status.items()
+            if status == "ready"
+        }
 
-    def start_task(self, task_name: str) -> None:
+    @property
+    def in_progress_tasks(self) -> set[str]:
+        return {
+            task
+            for task, status in self.task_status.items()
+            if status == "in_progress"
+        }
+
+    @property
+    def tasks_under_review(self) -> set[str]:
+        return {
+            task
+            for task, status in self.task_status.items()
+            if status == "under_review"
+        }
+
+    @property
+    def completed_tasks(self) -> set[str]:
+        return {
+            task
+            for task, status in self.task_status.items()
+            if status == "completed"
+        }
+
+    @property
+    def failed_tasks(self) -> set[str]:
+        return {
+            task
+            for task, status in self.task_status.items()
+            if status == "failed"
+        }
+
+    @property
+    def is_complete(self) -> bool:
+        return all(
+            self.task_status[task_name] == "completed"
+            for task_name in self.project.workflow.tasks
+        )
+
+    def start_task(self, task_name: str) -> dict:
         self._validate_known_task(task_name)
 
-        if task_name not in self.available_tasks:
-            raise ValueError(f"Task '{task_name}' is not available.")
+        if self.task_status[task_name] != "ready":
+            raise ValueError(
+                f"Task '{task_name}' is not ready to start."
+            )
 
-        self.task_statuses[task_name] = TaskStatus.IN_PROGRESS
-        self.history.append({
-            "event": "start",
-            "task": task_name,
-        })
+        self.task_status[task_name] = "in_progress"
+        self._update_state()
+        return self.state
 
-    def submit_task(self, task_name: str) -> None:
-        self._validate_known_task(task_name)
-
-        if self.task_statuses[task_name] != TaskStatus.IN_PROGRESS:
-            raise ValueError(f"Task '{task_name}' is not in progress.")
-
-        self.task_statuses[task_name] = TaskStatus.UNDER_REVIEW
-        self.history.append({
-            "event": "submit",
-            "task": task_name,
-        })
-
-    def accept_task(self, task_name: str) -> None:
-        self._validate_known_task(task_name)
-
-        if self.task_statuses[task_name] != TaskStatus.UNDER_REVIEW:
-            raise ValueError(f"Task '{task_name}' is not under review.")
-
-        self.task_statuses[task_name] = TaskStatus.ACCEPTED
-        self.history.append({
-            "event": "accept",
-            "task": task_name,
-        })
-
-    def reject_task(self, task_name: str) -> str:
-        self._validate_known_task(task_name)
-
-        if self.task_statuses[task_name] != TaskStatus.UNDER_REVIEW:
-            raise ValueError(f"Task '{task_name}' is not under review.")
-
-        self.task_statuses[task_name] = TaskStatus.REJECTED
-
-        restart_task = self._sample_restart_task(task_name)
-
-        self.reset_from_task(restart_task)
-
-        self.history.append({
-            "event": "reject",
-            "task": task_name,
-            "restart_task": restart_task,
-        })
-
-        return restart_task
-
-    def reset_from_task(self, task_name: str) -> None:
-        """
-        Reset task_name and all downstream tasks to NOT_STARTED.
-
-        This is useful after rejection/rework.
-        """
-        self._validate_known_task(task_name)
-
-        downstream_tasks = self.downstream_tasks(task_name)
-        tasks_to_reset = downstream_tasks | {task_name}
-
-        for task in tasks_to_reset:
-            if self.task_statuses[task] != TaskStatus.ACCEPTED:
-                self.task_statuses[task] = TaskStatus.NOT_STARTED
-            else:
-                self.task_statuses[task] = TaskStatus.NOT_STARTED
-
-        self.history.append({
-            "event": "reset",
-            "from_task": task_name,
-            "reset_tasks": sorted(tasks_to_reset),
-        })
-
-    def downstream_tasks(self, task_name: str) -> set[str]:
-        """
-        Return all tasks that depend directly or indirectly on task_name.
-        """
-        self._validate_known_task(task_name)
-
-        downstream = set()
-        changed = True
-
-        while changed:
-            changed = False
-
-            for candidate_name, candidate_task in self.workflow.tasks.items():
-                if candidate_name in downstream:
-                    continue
-
-                prerequisites = {
-                    prerequisite
-                    for prerequisite_set in candidate_task.prerequisite_sets
-                    for prerequisite in prerequisite_set
-                }
-
-                if task_name in prerequisites or prerequisites & downstream:
-                    downstream.add(candidate_name)
-                    changed = True
-
-        return downstream
-
-    def possible_execution_plans(
+    def finish_task(
         self,
-        start_tasks: set[str] | None = None,
-        target_tasks: set[str] | None = None,
-    ) -> list[list[set[str]]]:
-        """
-        Planning should probably move here later.
+        task_name: str,
+        success: bool,
+    ) -> dict:
+        self._validate_known_task(task_name)
 
-        For now, this only returns a simple staged plan based on current
-        available tasks.
-        """
-        if start_tasks is None:
-            start_tasks = self.available_tasks
+        if self.task_status[task_name] != "in_progress":
+            raise ValueError(
+                f"Task '{task_name}' is not in progress."
+            )
 
-        if target_tasks is None:
-            target_tasks = self.workflow.last
+        if not success:
+            self.task_status[task_name] = "failed"
+            self._update_state()
+            return self.state
 
-        return [
-            [start_tasks]
-        ]
+        if task_name in self.project.review_policy:
+            self.task_status[task_name] = "under_review"
+        else:
+            self.task_status[task_name] = "completed"
+            self._update_ready_tasks()
+        self._update_state()
+        return self.state
 
-    def _sample_restart_task(self, failed_task: str) -> str:
-        if failed_task not in self.failure_policy:
-            return failed_task
+    def submit_review(
+        self,
+        task_name: str,
+        reviewer: int,
+        score: float,
+    ) -> dict:
+        self._validate_known_task(task_name)
 
-        transitions = self.failure_policy[failed_task]
+        if self.task_status[task_name] != "under_review":
+            raise ValueError(
+                f"Task '{task_name}' is not under review."
+            )
 
-        restart_tasks = list(transitions.keys())
-        probabilities = list(transitions.values())
+        review_policy = self.project.review_policy[task_name]
 
-        return random.choices(
-            restart_tasks,
-            weights=probabilities,
-            k=1,
-        )[0]
+        if not (0.0 <= score <= 1.0):
+            raise ValueError("Review score must be between 0 and 1.")
+
+        if reviewer in review_policy.exclude_reviewers:
+            raise ValueError(
+                f"Reviewer '{reviewer}' is excluded from reviewing "
+                f"task '{task_name}'."
+            )
+
+        if review_policy.reviewers is not None:
+            if reviewer not in review_policy.reviewers:
+                raise ValueError(
+                    f"Reviewer '{reviewer}' is not eligible to review "
+                    f"task '{task_name}'."
+                )
+
+        self.review_scores[task_name][reviewer] = score
+        self._update_state()
+        return self.state
+
+    def finish_review(self, task_name: str) -> dict:
+        self._validate_known_task(task_name)
+
+        if self.task_status[task_name] != "under_review":
+            raise ValueError(
+                f"Task '{task_name}' is not under review."
+            )
+
+        if self._review_passes(task_name):
+            self.task_status[task_name] = "completed"
+            self._update_ready_tasks()
+        else:
+            self.task_status[task_name] = "failed"
+        self._update_state()
+        return self.state
+
+    def _review_passes(self, task_name: str) -> bool:
+        review_policy = self.project.review_policy[task_name]
+        scores = self.review_scores[task_name]
+
+        if len(scores) < review_policy.minimum_reviews:
+            raise ValueError(
+                f"Task '{task_name}' needs at least "
+                f"{review_policy.minimum_reviews} reviews before review "
+                f"can be finished."
+            )
+
+        if review_policy.score_threshold is None:
+            return True
+
+        total_score = sum(scores.values())
+        return total_score >= review_policy.score_threshold
+
+    def review_requirements(self, task_name: str) -> dict:
+        self._validate_known_task(task_name)
+
+        if task_name not in self.project.review_policy:
+            raise ValueError(
+                f"Task '{task_name}' does not have a review policy."
+            )
+
+        review_policy = self.project.review_policy[task_name]
+        scores = self.review_scores[task_name]
+
+        submitted_reviewers = set(scores)
+        submitted_count = len(scores)
+        remaining_reviews_needed = max(
+            review_policy.minimum_reviews - submitted_count,
+            0,
+        )
+        current_score = sum(scores.values())
+
+        if review_policy.reviewers is None:
+            eligible_reviewers = None
+        else:
+            eligible_reviewers = (
+                review_policy.reviewers
+                - review_policy.exclude_reviewers
+                - submitted_reviewers
+            )
+
+        return {
+            "eligible_reviewers": eligible_reviewers,
+            "excluded_reviewers": review_policy.exclude_reviewers,
+            "minimum_reviews": review_policy.minimum_reviews,
+            "submitted_reviewers": submitted_reviewers,
+            "remaining_reviews_needed": remaining_reviews_needed,
+            "score_threshold": review_policy.score_threshold,
+            "current_score": current_score,
+            "can_finish_review": remaining_reviews_needed == 0,
+        }
+
+    def return_to_task(
+        self,
+        failed_task: str,
+        return_task: str,
+    ) -> dict:
+        self._validate_known_task(failed_task)
+        self._validate_known_task(return_task)
+
+        if self.task_status[failed_task] != "failed":
+            raise ValueError(
+                f"Task '{failed_task}' has not failed."
+            )
+
+        if failed_task not in self.project.failure_policy:
+            raise ValueError(
+                f"Task '{failed_task}' failed, but no failure policy "
+                f"is defined."
+            )
+
+        failure_policy = self.project.failure_policy[failed_task]
+
+        if return_task not in failure_policy.transitions:
+            raise ValueError(
+                f"Task '{failed_task}' cannot return to "
+                f"task '{return_task}' according to its failure policy."
+            )
+
+        return_stage_index = self._stage_index_containing_task(return_task)
+
+        for stage in self.plan[return_stage_index:]:
+            for task_name in stage:
+                self.task_status[task_name] = "remaining"
+
+                if task_name in self.review_scores:
+                    self.review_scores[task_name] = {}
+
+        self.task_status[return_task] = "ready"
+        self._update_ready_tasks()
+        self._update_state()
+        return self.state
+
+    def _stage_index_containing_task(self, task_name: str) -> int:
+        for index, stage in enumerate(self.plan):
+            if task_name in stage:
+                return index
+
+        raise ValueError(
+            f"Task '{task_name}' is not in the selected plan."
+        )
 
     def _validate_known_task(self, task_name: str) -> None:
-        if task_name not in self.workflow.tasks:
+        if task_name not in self.task_status:
             raise ValueError(f"Unknown task: {task_name}")
+
+    def _update_state(self) -> None:
+        review_requirements = {}
+        for task_name in self.tasks_under_review:
+            review_requirements[task_name] = self.review_requirements(task_name)
+
+        failure_options = {}
+        for task_name in self.failed_tasks:
+            if task_name in self.project.failure_policy:
+                failure_options[task_name] = set(
+                    self.project.failure_policy[task_name].transitions
+                )
+            else:
+                failure_options[task_name] = None
+
+        self.state = {
+            "startable_tasks": self.startable_tasks,
+            "in_progress_tasks": self.in_progress_tasks,
+            "tasks_under_review": self.tasks_under_review,
+            "review_requirements": review_requirements,
+            "failed_tasks": self.failed_tasks,
+            "failure_options": failure_options,
+            "completed_tasks": self.completed_tasks,
+            "is_complete": self.is_complete,
+        }
 
     @property
     def summary(self) -> dict:
         return {
-            "Accepted tasks": self.accepted_tasks,
-            "Incomplete tasks": self.incomplete_tasks,
-            "Available tasks": self.available_tasks,
-            "Statuses": self.task_statuses,
+            "Task status": self.task_status,
+            "Review scores": self.review_scores,
+            "State": self.state,
         }
+
+
+if __name__ == "__main__":
+    from pprint import pprint
+
+    from trustdynamics.work.project.examples.example_1 import project
+
+    possible_plans = project.possible_plans()
+    plan = possible_plans[0]
+    project.choose_plan(plan)
+
+    execution = Execution(project)
+
+    pprint(execution.summary, sort_dicts=False)
+
+    # Starting a startable task
+    print(">>> starting a startable task")
+    state = execution.state
+    startable_tasks = list(state["startable_tasks"])
+    task = startable_tasks[0]
+
+    state = execution.start_task(task)
+    pprint(state, sort_dicts=False)
+
+    # Task is being worked by the worker (human or AI)
+    print(">>> task in progress")
+
+    # Finish the task with success or failure
+    print(">>> task executed")
+    state = execution.finish_task(task, success=True)
+    pprint(state, sort_dicts=False)
+
+    # Review process
+    if task in state["tasks_under_review"]:
+        requirements = state["review_requirements"][task]
+        pprint(requirements, sort_dicts=False)
+
+        eligible_reviewers = requirements["eligible_reviewers"]
+        remaining_reviews_needed = requirements["remaining_reviews_needed"]
+
+        if eligible_reviewers is None:
+            reviewers_to_submit = list(
+                range(remaining_reviews_needed)
+            )
+        else:
+            reviewers_to_submit = list(eligible_reviewers)[
+                :remaining_reviews_needed
+            ]
+
+        for reviewer in reviewers_to_submit:
+            state = execution.submit_review(
+                task,
+                reviewer=reviewer,
+                score=1.0,
+            )
+
+        if state["review_requirements"][task]["can_finish_review"]:
+            state = execution.finish_review(task)
+
+    if task in state["failed_tasks"]:
+        failure_options = state["failure_options"][task]
+
+        if failure_options is not None:
+            return_task = list(failure_options)[0]
+            state = execution.return_to_task(
+                failed_task=task,
+                return_task=return_task,
+            )
+
+    pprint(execution.summary, sort_dicts=False)
