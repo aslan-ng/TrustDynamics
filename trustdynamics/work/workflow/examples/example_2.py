@@ -1,3 +1,7 @@
+"""
+A workflow with a set of simple tasks. Multiple plans possible with AND and OR relationships.
+"""
+
 from trustdynamics.work.workflow.task import Task
 from trustdynamics.work.workflow.workflow import Workflow
 

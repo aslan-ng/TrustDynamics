@@ -6,10 +6,10 @@ from trustdynamics.work.policy.assignment.assignment import AssignmentPolicy
 
 
 assignment_policy = {
-    "Task 3": AssignmentPolicy(
-        assignees={1, 2},
+    "Task 1": AssignmentPolicy(
+        workers={1, 2},
     ),
     "Task 4": AssignmentPolicy(
-        exclude_assignees={3},
+        exclude_workers={3},
     ),
 }

@@ -1,5 +1,5 @@
 """
-Simple linear tasks.
+A workflow with a set of simple linear tasks.
 """
 
 from trustdynamics.work.workflow.task import Task

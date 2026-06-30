@@ -20,6 +20,11 @@ class Execution:
             for task_name in self.project.review_policy
         }
 
+        self.task_workers: dict[str, int | None] = {
+            task_name: None
+            for task_name in self.project.workflow.tasks
+        }
+
         self._update_ready_tasks()
         self.state = {}
         self._update_state()
@@ -43,6 +48,13 @@ class Execution:
                 if set(prerequisite_set).issubset(completed_tasks):
                     self.task_status[task_name] = "ready"
                     break
+
+    @property
+    def assignment_requirements(self) -> dict[str, dict]:
+        return {
+            task_name: self.task_assignment_requirements(task_name)
+            for task_name in self.startable_tasks
+        }
 
     @property
     def startable_tasks(self) -> set[str]:
@@ -90,8 +102,7 @@ class Execution:
             self.task_status[task_name] == "completed"
             for task_name in self.project.workflow.tasks
         )
-
-    def start_task(self, task_name: str) -> dict:
+    def start_task(self, task_name: str, worker: int) -> dict:
         self._validate_known_task(task_name)
 
         if self.task_status[task_name] != "ready":
@@ -99,9 +110,59 @@ class Execution:
                 f"Task '{task_name}' is not ready to start."
             )
 
+        self._validate_worker_assignment(task_name, worker)
+
         self.task_status[task_name] = "in_progress"
+        self.task_workers[task_name] = worker
+
         self._update_state()
         return self.state
+    
+    def task_assignment_requirements(self, task_name: str) -> dict:
+        self._validate_known_task(task_name)
+
+        assignment_policy = self.project.assignment_policy.get(task_name)
+
+        if assignment_policy is None:
+            return {
+                "eligible_workers": None,
+                "excluded_workers": set(),
+            }
+
+        if assignment_policy.workers is None:
+            eligible_workers = None
+        else:
+            eligible_workers = (
+                assignment_policy.workers
+                - assignment_policy.exclude_workers
+            )
+
+        return {
+            "eligible_workers": eligible_workers,
+            "excluded_workers": assignment_policy.exclude_workers,
+        }
+
+    def _validate_worker_assignment(
+        self,
+        task_name: str,
+        worker: int,
+    ) -> None:
+        assignment_policy = self.project.assignment_policy.get(task_name)
+
+        if assignment_policy is None:
+            return
+
+        if worker in assignment_policy.exclude_workers:
+            raise ValueError(
+                f"Worker '{worker}' is excluded from task '{task_name}'."
+            )
+
+        if assignment_policy.workers is not None:
+            if worker not in assignment_policy.workers:
+                raise ValueError(
+                    f"Worker '{worker}' is not eligible for task "
+                    f"'{task_name}'."
+                )
 
     def finish_task(
         self,
@@ -304,6 +365,8 @@ class Execution:
                 failure_options[task_name] = None
 
         self.state = {
+            "assignment_requirements": self.assignment_requirements,
+            "task_workers": self.task_workers,
             "startable_tasks": self.startable_tasks,
             "in_progress_tasks": self.in_progress_tasks,
             "tasks_under_review": self.tasks_under_review,
@@ -318,6 +381,7 @@ class Execution:
     def summary(self) -> dict:
         return {
             "Task status": self.task_status,
+            "Task workers": self.task_workers,
             "Review scores": self.review_scores,
             "State": self.state,
         }
@@ -342,7 +406,14 @@ if __name__ == "__main__":
     startable_tasks = list(state["startable_tasks"])
     task = startable_tasks[0]
 
-    state = execution.start_task(task)
+    state = execution.state
+    task = list(state["startable_tasks"])[0]
+
+    assignment_requirements = state["assignment_requirements"][task]
+    eligible_workers = assignment_requirements["eligible_workers"]
+    worker = list(eligible_workers)[0]  # Choose a worker
+
+    state = execution.start_task(task, worker=worker)
     pprint(state, sort_dicts=False)
 
     # Task is being worked by the worker (human or AI)
@@ -384,7 +455,7 @@ if __name__ == "__main__":
         failure_options = state["failure_options"][task]
 
         if failure_options is not None:
-            return_task = list(failure_options)[0]
+            return_task = list(failure_options)[0]  # NEEDS UPDATING
             state = execution.return_to_task(
                 failed_task=task,
                 return_task=return_task,

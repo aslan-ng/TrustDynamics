@@ -2,15 +2,15 @@ class AssignmentPolicy:
 
     def __init__(
         self,
-        assignees: set[int] | None = None,
-        exclude_assignees: set[int] | None = None,
+        workers: set[int] | None = None,
+        exclude_workers: set[int] | None = None,
     ):
-        self.assignees = assignees
-        self.exclude_assignees = exclude_assignees or set()
+        self.workers = workers
+        self.exclude_workers = exclude_workers or set()
 
 
 if __name__ == "__main__":
     assignment_policy = AssignmentPolicy(
-        assignees={1, 2},
-        exclude_assignees=None,
+        workers={1, 2},
+        exclude_workers=None,
     )
