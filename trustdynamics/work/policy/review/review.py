@@ -5,7 +5,7 @@ class ReviewPolicy:
         reviewers: set[int] | None = None,          # None means all eligible reviewers
         exclude_reviewers: set[int] | None = None,  # Excluded from reviewers
         minimum_reviews: int = 1,                   # Minimum completed reviews required
-        score_threshold: float | None = None,       # None means no score threshold
+        score_threshold: float = 1.0,               # None means no score threshold
     ):
         if minimum_reviews < 1:
             raise ValueError(
@@ -29,5 +29,5 @@ if __name__ == "__main__":
         reviewers={1, 2, 3},
         exclude_reviewers=None,
         minimum_reviews=2,
-        score_threshold=None,
+        score_threshold=1.0,
     )

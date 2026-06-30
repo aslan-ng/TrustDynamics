@@ -35,6 +35,7 @@ class Execution(
         }
 
         self._update_ready_tasks()
+        self._validate_review_feasibility()
 
     def _update_ready_tasks(self) -> None:
         completed_tasks = {
@@ -117,20 +118,25 @@ if __name__ == "__main__":
 
     # Finish task
     execution.finish_task(task_name=task_name, success=True)
-    print(execution.task_states)
+    #print(execution.task_states)
 
     # Does it need review?
     needs_review = execution.needs_review(task_name=task_name)
-    print(needs_review)
+    #print(needs_review)
 
     if needs_review:
         pass
         # Who can review it?
         eligible_reviewers = execution.eligible_reviewers(task_name=task_name)
-        print(eligible_reviewers) # better validation
+        #print(eligible_reviewers) # better validation
 
         # Submitting reviews
-        #execution.submit_review(task_name=task_name, review=)
+        execution.submit_review(
+            task_name=task_name,
+            reviewer=list(eligible_reviewers)[0],
+            score=True
+        )
 
         # Finish reviews
-        #execution.finish_review(task_name=task_name)
+        execution.finish_review(task_name=task_name)
+        print(execution.task_states)
